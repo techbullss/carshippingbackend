@@ -1,6 +1,6 @@
 FROM maven:3.8.6-eclipse-temurin-17 AS builder
 WORKDIR /app
-COPY carshippingbackend/pom.xml .
+COPY pom.xml .
 RUN mvn -f pom.xml dependency:go-offline
 COPY StainlesSteel/src ./src
 RUN mvn -f pom.xml clean package -DskipTests

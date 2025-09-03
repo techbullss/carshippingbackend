@@ -3,7 +3,10 @@ name: Build & Release Spring Boot JAR
 on:
   push:
     branches:
-      - main  # Trigger on pushes to the main branch
+      - main
+
+permissions:
+  contents: write   # 👈 allow workflow to create releases & upload assets
 
 jobs:
   build-and-release:
@@ -23,16 +26,10 @@ jobs:
         run: ./mvnw clean package -DskipTests
 
       - name: Create GitHub Release
-        id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload JAR to Release
-        uses: softprops/action-gh-release@v1
-        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Release v1.0.${{ github.run_number }}
           files: target/*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

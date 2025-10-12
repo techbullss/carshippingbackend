@@ -17,7 +17,8 @@ public class Container {
     private Long id;
 
     private String containerNumber;
-    private String size;   // e.g. 20ft, 40ft
+    @Column(name = "container_size") // Rename from "size"
+    private String size;  // e.g. 20ft, 40ft
     private String type;   // e.g. Dry, Reefer
     private Double price;
     private String status; // e.g. Available, Sold

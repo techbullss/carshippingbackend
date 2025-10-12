@@ -8,6 +8,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,57 +18,142 @@ import java.util.Map;
 import java.util.Optional;
 
 @RestController
-@CrossOrigin("https://carshippingfrontend.vercel.app/")
+@CrossOrigin(origins = "https://carshippingfrontend.vercel.app/") // ADD allowCredentials
 @RequestMapping("/api/cars")
 public class CarController {
+
     @Autowired
     private CarRepository carRepo;
+
     private final CarService service;
 
-    public CarController(CarService service) { this.service = service; }
+    public CarController(CarService service) {
+        this.service = service;
+    }
 
+    // ------------------- Search / List -------------------
     @GetMapping
     public ResponseEntity<?> search(@RequestParam Map<String,String> allParams,
                                     @RequestParam(defaultValue = "0") int page,
                                     @RequestParam(defaultValue = "12") int size,
-                                    @RequestParam(defaultValue = "priceKes,desc") String sort) {
-        String[] sortParts = sort.split(",");
-        Sort s = Sort.by(Sort.Direction.fromString(sortParts.length>1?sortParts[1]:"desc"), sortParts[0]);
-        var result = service.search(allParams, page, size, s);
-        return ResponseEntity.ok(result);
+                                    @RequestParam(defaultValue = "priceKes,desc") String sort
+                                    ) { // ADD Authentication parameter
+        try {
+            // Check if user is authenticated
+
+            String[] sortParts = sort.split(",");
+            Sort s = Sort.by(Sort.Direction.fromString(sortParts.length>1?sortParts[1]:"desc"), sortParts[0]);
+            var result = service.search(allParams, page, size, s);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
     }
 
+    // ------------------- Create -------------------
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> create(
             @RequestPart("car") Car car,
-            @RequestPart(value = "images", required = false) MultipartFile[] images
+            @RequestPart(value = "images", required = false) MultipartFile[] images,
+            Authentication authentication // ADD Authentication parameter
+
     ) throws IOException {
-        Car created = service.create(car, images);
-        return ResponseEntity.ok(created);
+        try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(401).body("Authentication required");
+            }
+
+            Car created = service.create(car, images);
+            return ResponseEntity.ok(created);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
+
     }
+
+    // ------------------- Get by ID -------------------
     @GetMapping("/{id}")
-    public ResponseEntity<?> getcars(@PathVariable Long id){
-       Optional<Car>  car=carRepo.findById(id);
+    public ResponseEntity<?> getCar(@PathVariable Long id) { // ADD Authentication
+        try {
 
-        return   ResponseEntity.ok(car);
+            Optional<Car> car = carRepo.findById(id);
+            return ResponseEntity.ok(car.orElse(null));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
     }
+
+    // ------------------- Update -------------------
+    @PutMapping(value="/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateCar(
+            @PathVariable Long id,
+            @RequestPart("car") Car car,
+            @RequestPart(value = "images", required = false) MultipartFile[] images,
+            Authentication authentication // ADD Authentication
+    ) throws IOException {
+        try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(401).body("Authentication required");
+            }
+
+            car.setId(id);
+            Car updated = service.update(car, images);
+            return ResponseEntity.ok(updated);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
+    }
+
+    // ------------------- Similar -------------------
     @GetMapping("/similar")
-    public ResponseEntity<List<Car>> getSimilarVehicles(
-            @RequestParam String brand,
-            @RequestParam String model,
-            @RequestParam(required = false) Long exclude) {
+    public ResponseEntity<?> getSimilarVehicles( // Change return type to ResponseEntity<?>
+                                                 @RequestParam String brand,
+                                                 @RequestParam String model,
+                                                 @RequestParam(required = false) Long exclude
+                                                  // ADD Authentication
+    ) {
+        try {
 
-        // Create query to find similar vehicles
-        List<Car> similarCars = carRepo.findByMakeAndModelAndIdNot(brand, model, exclude);
 
-        return ResponseEntity.ok(similarCars);
+            List<Car> similarCars = carRepo.findByMakeAndModelAndIdNot(brand, model, exclude);
+            return ResponseEntity.ok(similarCars);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
     }
+
+    // ------------------- Latest -------------------
     @GetMapping("/latest")
-    public ResponseEntity<List<Car>> getLatestArrivals() {
-        List<Car> cars = carRepo.findAll(
-                PageRequest.of(0, 6, Sort.by(Sort.Direction.DESC, "id"))
-        ).getContent();
-        return ResponseEntity.ok(cars);
+    public ResponseEntity<?> getLatestArrivals() { // ADD Authentication
+        try {
+
+
+            List<Car> cars = carRepo.findAll(
+                    PageRequest.of(0, 6, Sort.by(Sort.Direction.DESC, "id"))
+            ).getContent();
+            return ResponseEntity.ok(cars);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
+    }
+
+    // ------------------- Delete -------------------
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteCar(@PathVariable Long id, Authentication authentication) { // ADD Authentication
+        try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(401).body("Authentication required");
+            }
+
+            Optional<Car> carOpt = carRepo.findById(id);
+            if (carOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            carRepo.deleteById(id);
+            return ResponseEntity.ok(Map.of("message", "Car deleted successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
     }
 }
-

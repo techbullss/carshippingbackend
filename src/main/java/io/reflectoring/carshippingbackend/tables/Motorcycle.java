@@ -11,31 +11,53 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Table(name = "motorcycle")  // Explicit table name
 public class Motorcycle {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "motorcycle_seq")
+    @SequenceGenerator(name = "motorcycle_seq", sequenceName = "motorcycle_seq", allocationSize = 1)
     private Long id;
 
     private String brand;
     private String model;
     private String type;
+
+    @Column(name = "engine_capacity")
     private Integer engineCapacity;
+
     private String status;
     private Double price;
     private String location;
     private String owner;
     private int year;
-    @ElementCollection
+
+    // FIX: Proper collection mapping for features
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "motorcycle_features",
+            joinColumns = @JoinColumn(name = "motorcycle_id")
+    )
+    @Column(name = "feature")
     private List<String> features;
 
-    @ElementCollection
-    @Column(name = "image_url", columnDefinition = "TEXT")
+    // FIX: Proper collection mapping for images + change TEXT to VARCHAR2
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "motorcycle_images",
+            joinColumns = @JoinColumn(name = "motorcycle_id")
+    )
+    @Column(name = "image_url", length = 1000)  // Use length instead of TEXT
     private List<String> imageUrls;
 
-    @Column(columnDefinition = "TEXT")
+    // FIX: Change TEXT to CLOB for Oracle
+    @Lob
+    @Column(columnDefinition = "CLOB")
     private String description;
 
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     @PrePersist

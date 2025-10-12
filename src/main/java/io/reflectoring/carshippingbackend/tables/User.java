@@ -16,7 +16,8 @@ import java.util.Set;
 @Data
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_seq")
+    @SequenceGenerator(name = "user_seq", sequenceName = "user_seq", allocationSize = 1)
     private Long id;
 
     @NotBlank
@@ -61,9 +62,12 @@ public class User {
     private String country;
 
     // Preferences
-    @ElementCollection
-    @CollectionTable(name = "user_communication_preferences", joinColumns = @JoinColumn(name = "user_id"))
-    @Column(name = "communication_method")
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "user_communication_preferences",
+            joinColumns = @JoinColumn(name = "user_id")
+    )
+    @Column(name = "communication_method", length = 50)
     private Set<String> preferredCommunication = new HashSet<>();
 
     @Column(name = "newsletter_subscribed")
@@ -85,11 +89,14 @@ public class User {
     @Column(name = "destination_country")
     private String destinationCountry = "Kenya";
 
-    //  Roles (ADMIN, SELLER, ASSISTANT, USER)
+    // Roles (ADMIN, SELLER, ASSISTANT, USER)
     @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
+    @CollectionTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id")
+    )
     @Enumerated(EnumType.STRING)
-    @Column(name = "role")
+    @Column(name = "role", length = 20)
     private Set<Role> roles = new HashSet<>();
 
     @Column(name = "created_at")

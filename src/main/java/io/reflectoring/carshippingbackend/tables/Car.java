@@ -18,16 +18,19 @@ public class Car {
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "car_seq")
     @SequenceGenerator(name = "car_seq", sequenceName = "car_seq", allocationSize = 1)
     private Long id;
+
     private String refNo = "FCar-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+
     @Column(nullable = false)
     private String brand;
+
     private String refLink;
 
     @Column(nullable = false)
     private String model;
 
     @Column(name = "year_of_manufacture")
-    private String yearOfManufacture; // string to match frontend
+    private String yearOfManufacture;
 
     @Column(name = "condition_type")
     private String conditionType;
@@ -41,23 +44,24 @@ public class Car {
     private String engineType;
 
     @Column(name = "engine_capacity_cc")
-    private String engineCapacityCc; // string to match frontend
+    private String engineCapacityCc;
 
     @Column(name = "fuel_type")
     private String fuelType;
 
     private String transmission;
-    private String seats; // string
-    private String doors; // string
+    private String seats;
+    private String doors;
 
     @Column(name = "mileage_km")
-    private String mileageKm; // string
+    private String mileageKm;
 
     @Column(name = "price_kes")
-    private String priceKes; // string
+    private String priceKes;
 
+    // FIX 1: Change LONGTEXT to CLOB for Oracle
     @Lob
-    @Column(columnDefinition = "LONGTEXT")
+    @Column(columnDefinition = "CLOB")
     private String description;
 
     private String location;
@@ -65,8 +69,9 @@ public class Car {
     private String features;
     private String seller;
 
+    // FIX 2: Change LONGTEXT to CLOB for Oracle
     @Lob
-    @Column(columnDefinition = "LONGTEXT")
+    @Column(columnDefinition = "CLOB")
     private String customSpecs;
 
     // Image URLs mapped to a separate table with FK to cars

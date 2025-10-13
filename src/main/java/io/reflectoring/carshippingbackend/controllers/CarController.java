@@ -156,4 +156,27 @@ public class CarController {
             return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
     }
+    // ------------------- Get All Makes -------------------
+    @GetMapping("/makes")
+    public ResponseEntity<?> getAllMakes() {
+        try {
+            // DISTINCT make with count of cars per make
+            List<Map<String, Object>> makes = carRepo.findDistinctMakesWithCount();
+            return ResponseEntity.ok(makes);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
+    }
+
+    // ------------------- Get Models by Make -------------------
+    @GetMapping("/models")
+    public ResponseEntity<?> getModelsByMake(@RequestParam String make) {
+        try {
+            List<Map<String, Object>> models = carRepo.findDistinctModelsByMake(make);
+            return ResponseEntity.ok(models);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
+    }
+
 }

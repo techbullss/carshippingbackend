@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Map;
 
 public interface CarRepository extends JpaRepository<Car, Long>, JpaSpecificationExecutor<Car> {
     @Query("SELECT c FROM Car c WHERE c.brand = :brand AND c.model = :model AND c.id != :excludeId")
@@ -13,6 +14,11 @@ public interface CarRepository extends JpaRepository<Car, Long>, JpaSpecificatio
             @Param("brand") String make,
             @Param("model") String model,
             @Param("excludeId") Long excludeId);
+    @Query("SELECT new map(c.make as name, COUNT(c) as count) FROM Car c GROUP BY c.make ORDER BY c.make")
+    List<Map<String, Object>> findDistinctMakesWithCount();
+
+    @Query("SELECT DISTINCT new map(c.model as name) FROM Car c WHERE c.make = :make ORDER BY c.model")
+    List<Map<String, Object>> findDistinctModelsByMake(String make);
 
 }
 

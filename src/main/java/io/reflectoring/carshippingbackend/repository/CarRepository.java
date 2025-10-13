@@ -14,7 +14,7 @@ public interface CarRepository extends JpaRepository<Car, Long>, JpaSpecificatio
             @Param("brand") String make,
             @Param("model") String model,
             @Param("excludeId") Long excludeId);
-    @Query("SELECT new map(c.brand as name, COUNT(c) as count) FROM Car c GROUP BY c.brade ORDER BY c.brand")
+    @Query("SELECT new map(c.brand as name, COUNT(c) as count) FROM Car c GROUP BY c.brand ORDER BY c.brand")
     List<Map<String, Object>> findDistinctMakesWithCount();
     @Query("SELECT DISTINCT new map(c.model as name) FROM Car c WHERE c.make = :make ORDER BY c.model")
     List<Map<String, Object>> findDistinctModelsByMake(String make);

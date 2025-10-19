@@ -16,7 +16,6 @@ public class Car {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY, generator = "car_seq")
-    @SequenceGenerator(name = "car_seq", sequenceName = "car_seq", allocationSize = 1)
     private Long id;
 
     private String refNo = "FCar-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();

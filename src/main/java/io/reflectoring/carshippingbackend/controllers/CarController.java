@@ -1,5 +1,7 @@
 package io.reflectoring.carshippingbackend.controllers;
 
+import io.reflectoring.carshippingbackend.Enum.Role;
+import io.reflectoring.carshippingbackend.configaration.CustomUserDetails;
 import io.reflectoring.carshippingbackend.repository.CarRepository;
 import io.reflectoring.carshippingbackend.services.CarService;
 import io.reflectoring.carshippingbackend.tables.Car;
@@ -16,6 +18,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @RestController
 @CrossOrigin(origins = "https://carshippingfrontend.vercel.app/") // ADD allowCredentials
@@ -49,6 +52,31 @@ public class CarController {
             return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
     }
+    @GetMapping("/dashboard")
+    public ResponseEntity<?> dashboard(
+            @RequestParam Map<String, String> allParams,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size,
+            @RequestParam(defaultValue = "priceKes,desc") String sort,
+            Authentication authentication
+    ) {
+        try {
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            String email = userDetails.getEmail();
+            Set<Role> role = userDetails.getRoles(); // Make sure CustomUserDetails has getRole()
+
+            String[] sortParts = sort.split(",");
+            Sort s = Sort.by(Sort.Direction.fromString(sortParts.length > 1 ? sortParts[1] : "desc"), sortParts[0]);
+
+            var result = service.searchByUserRole(allParams, page, size, s, email, role.toString());
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
+    }
+
 
     // ------------------- Create -------------------
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

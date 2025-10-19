@@ -1,4 +1,5 @@
 package io.reflectoring.carshippingbackend.configaration;
+
 import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.tables.User;
 import org.springframework.security.core.GrantedAuthority;
@@ -18,7 +19,6 @@ public class CustomUserDetails implements UserDetails {
     }
 
     @Override
-
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return user.getRoles().stream()
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
@@ -49,5 +49,18 @@ public class CustomUserDetails implements UserDetails {
 
     public User getUser() {
         return user;
+    }
+
+    // ✅ Add helper methods for convenience
+    public String getEmail() {
+        return user.getEmail();
+    }
+
+    public Set<Role> getRoles() {
+        return user.getRoles();
+    }
+
+    public Long getId() {
+        return user.getId();
     }
 }

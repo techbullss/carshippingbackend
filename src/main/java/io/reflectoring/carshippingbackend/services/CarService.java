@@ -107,6 +107,15 @@ System.out.println("sereee"+car.getSeller());
         // 4️⃣ Save updated car
         return repo.save(existing);
     }
+    public Page<Car> searchByUserRole(Map<String, String> allParams, int page, int size, Sort sort, String email, String role) {
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        if ("ADMIN".equalsIgnoreCase(role)) {
+            return repo.search(allParams, pageable); // all cars
+        } else {
+            return repo.searchBySeller(allParams, pageable, email); // only seller's cars
+        }
+    }
 
 }
 

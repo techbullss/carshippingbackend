@@ -1,5 +1,7 @@
 package io.reflectoring.carshippingbackend.repository;
 import io.reflectoring.carshippingbackend.tables.Car;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -19,6 +21,22 @@ public interface CarRepository extends JpaRepository<Car, Long>, JpaSpecificatio
 
     @Query("SELECT DISTINCT new map(c.model as name) FROM Car c WHERE c.brand = :make ORDER BY c.model")
     List<Map<String, Object>> findDistinctModelsByMake(@Param("make") String make);
+    @Query("""
+    SELECT c FROM Car c
+    WHERE (:#{#filters['brand']} IS NULL OR c.brand LIKE %:#{#filters['brand']}%)
+    AND (:#{#filters['model']} IS NULL OR c.model LIKE %:#{#filters['model']}%)
+""")
+    Page<Car> search(@Param("filters") Map<String, String> filters, Pageable pageable);
+
+
+    @Query("""
+    SELECT c FROM Car c
+    WHERE (:#{#filters['brand']} IS NULL OR c.brand LIKE %:#{#filters['brand']}%)
+    AND (:#{#filters['model']} IS NULL OR c.model LIKE %:#{#filters['model']}%)
+    AND c.seller = :email
+""")
+    Page<Car> searchBySeller(@Param("filters") Map<String, String> filters, Pageable pageable, @Param("email") String email);
+
 
 }
 

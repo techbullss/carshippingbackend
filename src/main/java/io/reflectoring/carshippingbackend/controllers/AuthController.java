@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "https://carshippingfrontend.vercel.app/", allowCredentials = "true")
+@CrossOrigin(origins = "https://f-carshipping.com/", allowCredentials = "true")
 public class AuthController {
 
     private final AuthService authService;

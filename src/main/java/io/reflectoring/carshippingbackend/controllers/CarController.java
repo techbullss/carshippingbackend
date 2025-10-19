@@ -21,7 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 
 @RestController
-@CrossOrigin(origins = "https://carshippingfrontend.vercel.app/") // ADD allowCredentials
+@CrossOrigin(origins = "https://f-carshipping.com/") // ADD allowCredentials
 @RequestMapping("/api/cars")
 public class CarController {
 

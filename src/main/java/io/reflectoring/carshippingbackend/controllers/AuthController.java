@@ -181,7 +181,7 @@ public class AuthController {
     private void setAuthCookie(HttpServletResponse response, String token) {
         boolean isLocalhost = false;
 
-        String backendDomain = "carshipping.duckdns.org";
+        String backendDomain = "api.f-carshipping.com";
         String cookieDomain = isLocalhost ? "localhost" : backendDomain;
 
         ResponseCookie cookie = ResponseCookie.from(cookieName, token)

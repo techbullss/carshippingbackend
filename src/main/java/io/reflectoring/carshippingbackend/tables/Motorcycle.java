@@ -51,7 +51,7 @@ public class Motorcycle {
 
     // FIX: Change TEXT to CLOB for Oracle
     @Lob
-    @Column(columnDefinition = "CLOB")
+    @Column(columnDefinition = "LONGTEXT")
     private String description;
 
     @Column(name = "created_at")

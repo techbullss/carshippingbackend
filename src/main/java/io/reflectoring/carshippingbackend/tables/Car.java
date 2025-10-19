@@ -60,7 +60,7 @@ public class Car {
 
     // FIX 1: Change LONGTEXT to CLOB for Oracle
     @Lob
-    @Column(columnDefinition = "CLOB")
+    @Column(columnDefinition = "LONGTEXT")
     private String description;
 
     private String location;

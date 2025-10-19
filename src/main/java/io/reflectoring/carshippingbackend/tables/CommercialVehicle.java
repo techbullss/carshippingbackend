@@ -73,7 +73,7 @@ public class CommercialVehicle {
 
     // FIX: Change TEXT to CLOB for Oracle
     @Lob
-    @Column(columnDefinition = "CLOB")
+    @Column(columnDefinition = "LONGTEXT")
     private String customSpecs; // JSON string
 
     // FIX: Add proper collection mapping for Oracle

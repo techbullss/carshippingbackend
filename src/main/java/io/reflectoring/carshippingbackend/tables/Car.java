@@ -13,9 +13,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "cars")
 public class Car {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY, generator = "car_seq")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String refNo = "FCar-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();

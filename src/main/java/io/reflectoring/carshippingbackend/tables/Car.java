@@ -15,7 +15,7 @@ import java.util.UUID;
 public class Car {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "car_seq")
+    @GeneratedValue(strategy = GenerationType.IDENTITY, generator = "car_seq")
     @SequenceGenerator(name = "car_seq", sequenceName = "car_seq", allocationSize = 1)
     private Long id;
 

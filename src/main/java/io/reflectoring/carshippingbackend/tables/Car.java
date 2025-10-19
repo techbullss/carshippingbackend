@@ -15,7 +15,6 @@ import java.util.UUID;
 public class Car {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-
     private Long id;
 
     private String refNo = "FCar-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -70,7 +69,7 @@ public class Car {
 
     // FIX 2: Change LONGTEXT to CLOB for Oracle
     @Lob
-    @Column(columnDefinition = "CLOB")
+    @Column(columnDefinition = "LONGTEXT")
     private String customSpecs;
 
     // Image URLs mapped to a separate table with FK to cars

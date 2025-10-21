@@ -120,7 +120,10 @@ public class CarSpecification {
                     preds.add(cb.lessThanOrEqualTo(cb.toInteger(root.get("engineCapacityCc")), maxCC));
                 } catch (NumberFormatException ignored) {}
             }
-
+            if (params.containsKey("yearOfManufacture") && !params.get("yearOfManufacture").isBlank()) {
+                String exactYear = params.get("yearOfManufacture");
+                preds.add(cb.equal(root.get("yearOfManufacture"), exactYear));
+            }
             // ============= FULL-TEXT SEARCH =============
             if (params.containsKey("search") && !params.get("search").isBlank()) {
                 String keyword = "%" + safeLower.apply(params.get("search")) + "%";

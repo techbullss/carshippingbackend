@@ -1,6 +1,7 @@
 package io.reflectoring.carshippingbackend.services;
 
 import io.reflectoring.carshippingbackend.DTO.SignupRequest;
+import io.reflectoring.carshippingbackend.DTO.UpdateUserRequest;
 import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.configaration.CustomUserDetails;
 import io.reflectoring.carshippingbackend.repository.UserRepository;
@@ -12,6 +13,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -68,4 +70,62 @@ public class UserService implements UserDetailsService {
 
         return new CustomUserDetails(user); // wrap entity inside CustomUserDetails
     }
+    public List<User> findAllUsers() {
+        return userRepository.findAll();
+    }
+
+
+
+    public User updateUser(Long id, UpdateUserRequest request) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Update fields if provided in request
+        if (request.getFirstName() != null) user.setFirstName(request.getFirstName());
+        if (request.getLastName() != null) user.setLastName(request.getLastName());
+        if (request.getEmail() != null) user.setEmail(request.getEmail());
+        if (request.getPhone() != null) user.setPhone(request.getPhone());
+        if (request.getDateOfBirth() != null) user.setDateOfBirth(request.getDateOfBirth());
+        if (request.getGender() != null) user.setGender(request.getGender());
+        if (request.getStreetAddress() != null) user.setStreetAddress(request.getStreetAddress());
+        if (request.getCity() != null) user.setCity(request.getCity());
+        if (request.getState() != null) user.setState(request.getState());
+        if (request.getPostalCode() != null) user.setPostalCode(request.getPostalCode());
+        if (request.getCountry() != null) user.setCountry(request.getCountry());
+        if (request.getNewsletter() != null) user.setNewsletter(request.getNewsletter());
+        if (request.getShippingFrequency() != null) user.setShippingFrequency(request.getShippingFrequency());
+        if (request.getVehicleType() != null) user.setVehicleType(request.getVehicleType());
+        if (request.getEstimatedShippingDate() != null) user.setEstimatedShippingDate(request.getEstimatedShippingDate());
+
+        return userRepository.save(user);
+    }
+
+    public User updateUserRoles(Long id, String role, String action) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        try {
+            Role roleEnum = Role.valueOf(role.toUpperCase());
+
+            if ("ADD".equalsIgnoreCase(action)) {
+                user.getRoles().add(roleEnum);
+            } else if ("REMOVE".equalsIgnoreCase(action)) {
+                user.getRoles().remove(roleEnum);
+            } else {
+                throw new RuntimeException("Invalid action. Use 'ADD' or 'REMOVE'");
+            }
+
+            return userRepository.save(user);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid role: " + role);
+        }
+    }
+
+    public void deleteUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        userRepository.delete(user);
+    }
+
+
 }

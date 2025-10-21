@@ -198,10 +198,19 @@ public class AuthController {
 
 
     private void clearAuthCookie(HttpServletResponse response) {
-        String cookie = String.format(
-                "%s=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
-                cookieName
-        );
-        response.addHeader("Set-Cookie", cookie);
+        boolean isLocalhost = false;
+        String backendDomain = "api.f-carshipping.com";
+        String cookieDomain = isLocalhost ? "localhost" : backendDomain;
+
+        ResponseCookie cookie = ResponseCookie.from(cookieName, "")
+                .httpOnly(true)
+                .secure(!isLocalhost) // Must match login cookie settings
+                .sameSite(isLocalhost ? "Lax" : "None") // Must match login cookie settings
+                .domain(cookieDomain) // Must match login cookie settings
+                .path("/")
+                .maxAge(0) // Set to 0 to expire immediately
+                .build();
+
+        response.addHeader("Set-Cookie", cookie.toString());
     }
 }

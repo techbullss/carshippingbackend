@@ -26,7 +26,6 @@ public class AdminController {
      * ============================
      */
     @GetMapping("/users")
-
     public ResponseEntity<List<UserResponse>> getAllUsers() {
         try {
             List<User> users = userService.findAllUsers();
@@ -42,7 +41,7 @@ public class AdminController {
 
 
     @GetMapping("/users/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         User user = userService.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
@@ -55,7 +54,7 @@ public class AdminController {
      * ============================
      */
     @PutMapping("/users/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable Long id,
             @RequestBody UpdateUserRequest request) {
@@ -70,7 +69,7 @@ public class AdminController {
      * ============================
      */
     @DeleteMapping("/users/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
         return ResponseEntity.ok().body("User deleted successfully");
@@ -82,7 +81,7 @@ public class AdminController {
      * ============================
      */
     @PatchMapping("/users/{id}/roles")
-    @PreAuthorize("hasRole('ADMIN')")
+
     public ResponseEntity<UserResponse> updateUserRoles(
             @PathVariable Long id,
             @RequestBody UpdateRoleRequest request) {

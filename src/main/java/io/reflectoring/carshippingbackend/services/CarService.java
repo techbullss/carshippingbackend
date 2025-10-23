@@ -107,7 +107,7 @@ System.out.println("sereee"+car.getSeller());
         // 4️⃣ Save updated car
         return repo.save(existing);
     }
-    public Page<Car> searchCars(Map<String, String> allParams, int page, int size, Sort sort, String currentUserEmail, String currentUserRole) {
+    public Page<Car> searchByUserRole(Map<String, String> allParams, int page, int size, Sort sort, String currentUserEmail, String currentUserRole) {
         Pageable pageable = PageRequest.of(page, size, sort);
 
         switch (currentUserRole.toUpperCase()) {

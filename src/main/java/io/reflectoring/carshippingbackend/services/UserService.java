@@ -1,5 +1,7 @@
 package io.reflectoring.carshippingbackend.services;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import io.reflectoring.carshippingbackend.DTO.SignupRequest;
 import io.reflectoring.carshippingbackend.DTO.UpdateUserRequest;
 import io.reflectoring.carshippingbackend.Enum.Role;
@@ -12,10 +14,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +24,7 @@ public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final Cloudinary cloudinary;
 
     public User createUser(SignupRequest signupRequest, Set<Role> roles) {
         if (userRepository.existsByEmail(signupRequest.getEmail())) {
@@ -126,6 +128,111 @@ public class UserService implements UserDetailsService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         userRepository.delete(user);
     }
+    public String saveProfilePicture(Long userId, MultipartFile file) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
+        try {
+            // Validate file
+            if (file.isEmpty()) {
+                throw new RuntimeException("File is empty");
+            }
 
+            if (!file.getContentType().startsWith("image/")) {
+                throw new RuntimeException("Only image files are allowed");
+            }
+
+            if (file.getSize() > 5 * 1024 * 1024) { // 5MB limit
+                throw new RuntimeException("File size must be less than 5MB");
+            }
+
+            // Generate unique filename
+            String uniqueFileName = UUID.randomUUID() + "-" +
+                    Objects.requireNonNull(file.getOriginalFilename()).replaceAll("\\s+", "_");
+
+            // Upload to Cloudinary
+            Map uploadResult = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "public_id", "profile-pictures/" + uniqueFileName,
+                            "resource_type", "auto",
+                            "folder", "user-profiles" // Optional: organize in folder
+                    )
+            );
+
+            String profilePictureUrl = (String) uploadResult.get("secure_url");
+
+            // Update user profile picture
+            user.setProfilePicture(profilePictureUrl);
+            userRepository.save(user);
+
+            return profilePictureUrl;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to upload profile picture: " + e.getMessage());
+        }
+    }
+    public void deleteOldProfilePicture(String oldImageUrl) {
+        if (oldImageUrl != null && !oldImageUrl.isEmpty()) {
+            try {
+                // Extract public_id from URL
+                String publicId = extractPublicIdFromUrl(oldImageUrl);
+                if (publicId != null) {
+                    cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
+                }
+            } catch (Exception e) {
+                // Log the error but don't throw - we don't want to fail the update if delete fails
+                System.err.println("Failed to delete old profile picture: " + e.getMessage());
+            }
+        }
+    }
+    private String extractPublicIdFromUrl(String imageUrl) {
+        try {
+            // Cloudinary URL pattern: https://res.cloudinary.com/cloudname/image/upload/v1234567/public_id.jpg
+            String[] parts = imageUrl.split("/upload/");
+            if (parts.length > 1) {
+                String withVersion = parts[1];
+                // Remove version part (v1234567/)
+                String withoutVersion = withVersion.replaceFirst("v\\d+/", "");
+                // Remove file extension
+                return withoutVersion.substring(0, withoutVersion.lastIndexOf('.'));
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to extract public_id from URL: " + imageUrl);
+        }
+        return null;
+    }
+    public String updateProfilePicture(Long userId, MultipartFile file) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Delete old profile picture if exists
+        if (user.getProfilePicture() != null && !user.getProfilePicture().isEmpty()) {
+            deleteOldProfilePicture(user.getProfilePicture());
+        }
+
+        // Upload new profile picture
+        return saveProfilePicture(userId, file);
+    }
+    public void changePassword(Long userId, String currentPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Verify current password
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new RuntimeException("Current password is incorrect");
+        }
+
+        // Validate new password
+        if (newPassword.length() < 8) {
+            throw new RuntimeException("New password must be at least 8 characters long");
+        }
+
+        // Update password
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+    public User save(User user) {
+        return userRepository.save(user);
+    }
 }

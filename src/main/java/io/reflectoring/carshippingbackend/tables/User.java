@@ -88,6 +88,8 @@ public class User {
 
     @Column(name = "destination_country")
     private String destinationCountry = "Kenya";
+    @Column(name = "profile_picture")
+    private String profilePicture;
 
     // Roles (ADMIN, SELLER, ASSISTANT, USER)
     @ElementCollection(fetch = FetchType.EAGER)

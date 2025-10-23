@@ -61,16 +61,20 @@ public class CarController {
             Authentication authentication
     ) {
         try {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(403).body("Unauthorized access");
+            }
+
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             String email = userDetails.getEmail();
-            Set<Role> role = userDetails.getRoles(); // Make sure CustomUserDetails has getRole()
+            Set<Role> role = userDetails.getRoles();
 
             String[] sortParts = sort.split(",");
             Sort s = Sort.by(Sort.Direction.fromString(sortParts.length > 1 ? sortParts[1] : "desc"), sortParts[0]);
 
             var result = service.searchByUserRole(allParams, page, size, s, email, role.toString());
-
             return ResponseEntity.ok(result);
+
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).body("Error: " + e.getMessage());

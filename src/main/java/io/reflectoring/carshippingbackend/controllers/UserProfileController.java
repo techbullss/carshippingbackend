@@ -28,7 +28,7 @@ public class UserProfileController {
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser() {
         try {
-            User currentUser = userService.getCurrentUser()
+            User currentUser = userService.getCurrentUserFromToken()
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             Map<String, Object> response = new HashMap<>();

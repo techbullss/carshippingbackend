@@ -9,6 +9,7 @@ import io.reflectoring.carshippingbackend.configaration.CustomUserDetails;
 import io.reflectoring.carshippingbackend.repository.UserRepository;
 import io.reflectoring.carshippingbackend.tables.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -234,5 +235,34 @@ public class UserService implements UserDetailsService {
     }
     public User save(User user) {
         return userRepository.save(user);
+    }
+    /**
+     * ============================
+     * 🔹 GET CURRENT USER FROM JWT TOKEN
+     * ============================
+     */
+    public Optional<User> getCurrentUserFromToken() {
+        try {
+            // Get authentication from security context
+            var authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return Optional.empty();
+            }
+
+            String username = authentication.getName();
+
+            // If username is "anonymousUser", return empty
+            if ("anonymousUser".equals(username)) {
+                return Optional.empty();
+            }
+
+            // Find user by email (username in JWT is typically the email)
+            return findByEmail(username);
+
+        } catch (Exception e) {
+            System.err.println("Error getting current user from token: " + e.getMessage());
+            return Optional.empty();
+        }
     }
 }

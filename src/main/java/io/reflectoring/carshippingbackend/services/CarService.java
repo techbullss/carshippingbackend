@@ -110,17 +110,11 @@ System.out.println("sereee"+car.getSeller());
     public Page<Car> searchByUserRole(Map<String, String> allParams, int page, int size, Sort sort, String currentUserEmail, String currentUserRole) {
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        switch (currentUserRole.toUpperCase()) {
+        switch (currentUserRole.replace("ROLE_", "").toUpperCase()) {
             case "ADMIN":
-                // Admin can see all cars
                 return repo.search(allParams, pageable);
-
             case "SELLER":
-                // Seller can only see their own cars
                 return repo.searchBySeller(allParams, pageable, currentUserEmail);
-
-
-
             default:
                 throw new RuntimeException("Unauthorized access");
         }

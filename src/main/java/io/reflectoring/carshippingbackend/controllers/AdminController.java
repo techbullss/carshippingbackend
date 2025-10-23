@@ -80,7 +80,7 @@ public class AdminController {
      * 🔹 UPDATE USER ROLES
      * ============================
      */
-    @PutMapping("/users/{id}/roles")
+    @PutMapping("/users/roles/{id}")
 
     public ResponseEntity<UserResponse> updateUserRoles(
             @PathVariable Long id,

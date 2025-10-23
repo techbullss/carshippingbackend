@@ -107,13 +107,22 @@ System.out.println("sereee"+car.getSeller());
         // 4️⃣ Save updated car
         return repo.save(existing);
     }
-    public Page<Car> searchByUserRole(Map<String, String> allParams, int page, int size, Sort sort, String email, String role) {
+    public Page<Car> searchCars(Map<String, String> allParams, int page, int size, Sort sort, String currentUserEmail, String currentUserRole) {
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        if ("ADMIN".equalsIgnoreCase(role)) {
-            return repo.search(allParams, pageable); // all cars
-        } else {
-            return repo.searchBySeller(allParams, pageable, email); // only seller's cars
+        switch (currentUserRole.toUpperCase()) {
+            case "ADMIN":
+                // Admin can see all cars
+                return repo.search(allParams, pageable);
+
+            case "SELLER":
+                // Seller can only see their own cars
+                return repo.searchBySeller(allParams, pageable, currentUserEmail);
+
+
+
+            default:
+                throw new RuntimeException("Unauthorized access");
         }
     }
 

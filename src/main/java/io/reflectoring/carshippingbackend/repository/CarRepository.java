@@ -22,18 +22,23 @@ public interface CarRepository extends JpaRepository<Car, Long>, JpaSpecificatio
     @Query("SELECT DISTINCT new map(c.model as name) FROM Car c WHERE c.brand = :make ORDER BY c.model")
     List<Map<String, Object>> findDistinctModelsByMake(@Param("make") String make);
     @Query("""
-    SELECT c FROM Car c
-    WHERE (:#{#filters['brand']} IS NULL OR c.brand LIKE %:#{#filters['brand']}%)
-    AND (:#{#filters['model']} IS NULL OR c.model LIKE %:#{#filters['model']}%)
+SELECT c FROM Car c
+WHERE 
+    (:#{#filters['brand']} IS NULL OR :#{#filters['brand']} = '' OR c.brand LIKE %:#{#filters['brand']}%)
+AND 
+    (:#{#filters['model']} IS NULL OR :#{#filters['model']} = '' OR c.model LIKE %:#{#filters['model']}%)
 """)
     Page<Car> search(@Param("filters") Map<String, String> filters, Pageable pageable);
 
 
     @Query("""
-    SELECT c FROM Car c
-    WHERE (:#{#filters['brand']} IS NULL OR c.brand LIKE %:#{#filters['brand']}%)
-    AND (:#{#filters['model']} IS NULL OR c.model LIKE %:#{#filters['model']}%)
-    AND c.seller = :email
+SELECT c FROM Car c
+WHERE 
+    (:#{#filters['brand']} IS NULL OR :#{#filters['brand']} = '' OR c.brand LIKE %:#{#filters['brand']}%)
+AND 
+    (:#{#filters['model']} IS NULL OR :#{#filters['model']} = '' OR c.model LIKE %:#{#filters['model']}%)
+AND 
+    LOWER(c.seller) = LOWER(:email)
 """)
     Page<Car> searchBySeller(@Param("filters") Map<String, String> filters, Pageable pageable, @Param("email") String email);
 

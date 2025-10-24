@@ -24,9 +24,9 @@ public interface CarRepository extends JpaRepository<Car, Long>, JpaSpecificatio
     @Query("""
 SELECT c FROM Car c
 WHERE 
-    (:#{#filters['brand']} IS NULL OR :#{#filters['brand']} = '' OR c.brand LIKE %:#{#filters['brand']}%)
-AND 
-    (:#{#filters['model']} IS NULL OR :#{#filters['model']} = '' OR c.model LIKE %:#{#filters['model']}%)
+  (:#{#filters == null || #filters['brand'] == null || #filters['brand'] == ''} = true OR c.brand LIKE %:#{#filters['brand']}%)
+  AND 
+  (:#{#filters == null || #filters['model'] == null || #filters['model'] == ''} = true OR c.model LIKE %:#{#filters['model']}%)
 """)
     Page<Car> search(@Param("filters") Map<String, String> filters, Pageable pageable);
 
@@ -34,13 +34,14 @@ AND
     @Query("""
 SELECT c FROM Car c
 WHERE 
-    (:#{#filters['brand']} IS NULL OR :#{#filters['brand']} = '' OR c.brand LIKE %:#{#filters['brand']}%)
-AND 
-    (:#{#filters['model']} IS NULL OR :#{#filters['model']} = '' OR c.model LIKE %:#{#filters['model']}%)
-AND 
-    LOWER(c.seller) = LOWER(:email)
+  (:#{#filters == null || #filters['brand'] == null || #filters['brand'] == ''} = true OR c.brand LIKE %:#{#filters['brand']}%)
+  AND 
+  (:#{#filters == null || #filters['model'] == null || #filters['model'] == ''} = true OR c.model LIKE %:#{#filters['model']}%)
+  AND 
+  LOWER(c.seller) = LOWER(:email)
 """)
     Page<Car> searchBySeller(@Param("filters") Map<String, String> filters, Pageable pageable, @Param("email") String email);
+
 
 
 }

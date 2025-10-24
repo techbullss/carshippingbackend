@@ -1,10 +1,13 @@
 package io.reflectoring.carshippingbackend.controllers;
 
 import io.reflectoring.carshippingbackend.DTO.ChangePasswordRequest;
+import io.reflectoring.carshippingbackend.configaration.CustomUserDetails;
 import io.reflectoring.carshippingbackend.services.UserService;
 import io.reflectoring.carshippingbackend.tables.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -53,12 +56,14 @@ public class UserProfileController {
      *  UPLOAD PROFILE PICTURE
      * ============================
      */
-    @PostMapping("/{userId}/profile-picture")
+    @PostMapping(value = "/profile-picture",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadProfilePicture(
-            @PathVariable Long userId,
-            @RequestParam("profilePicture") MultipartFile file) {
+            @RequestParam("profilePicture") MultipartFile file,
+            Authentication authentication) {
 
         try {
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            Long userId = userDetails.getId(); // or getEmail() if that’s what you use
             String profilePictureUrl = userService.updateProfilePicture(userId, file);
 
             Map<String, String> response = new HashMap<>();
@@ -68,7 +73,8 @@ public class UserProfileController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Failed to upload profile picture: " + e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body("Failed to upload profile picture: " + e.getMessage());
         }
     }
 

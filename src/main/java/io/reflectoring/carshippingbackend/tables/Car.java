@@ -66,6 +66,8 @@ public class Car {
     private String ownerType;
     private String features;
     private String seller;
+    private String roles;
+
 
     // FIX 2: Change LONGTEXT to CLOB for Oracle
     @Lob

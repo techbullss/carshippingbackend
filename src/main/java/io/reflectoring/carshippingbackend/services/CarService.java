@@ -32,7 +32,7 @@ public class CarService {
     public Car create(Car car, MultipartFile[] images) throws IOException {
         if (images != null && images.length > 0) {
             List<String> urls = new ArrayList<>();
-System.out.println("sereee"+car.getSeller());
+
             for (MultipartFile f : images) {
                 String uniqueFileName = UUID.randomUUID() + "-" +
                         Objects.requireNonNull(f.getOriginalFilename()).replaceAll("\\s+", "_");

@@ -6,8 +6,10 @@ import io.reflectoring.carshippingbackend.repository.CarRepository;
 import io.reflectoring.carshippingbackend.services.CarService;
 import io.reflectoring.carshippingbackend.tables.Car;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -52,34 +54,35 @@ public class CarController {
             return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
     }
-    @GetMapping("/dashboard")
+    @PostMapping("/dashboard")
     public ResponseEntity<?> dashboard(
             @RequestParam Map<String, String> allParams,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
             @RequestParam(defaultValue = "priceKes,desc") String sort,
-            Authentication authentication
+            @RequestBody Map<String, String> userPayload // ✅ Frontend will send this
     ) {
         try {
-            if (authentication == null || !authentication.isAuthenticated()) {
-                return ResponseEntity.status(403).body("Unauthorized access");
+            String email = userPayload.get("email");
+            String role = userPayload.get("role");
+
+            if (email == null || role == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Missing email or role");
             }
 
-            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-            String email = userDetails.getEmail();
-            Set<Role> role = userDetails.getRoles();
+            Sort sortObj = Sort.by(Sort.Order.desc("priceKes"));
+            Page<Car> cars = service.searchByUserRole(allParams, page, size, sortObj, email, role);
 
-            String[] sortParts = sort.split(",");
-            Sort s = Sort.by(Sort.Direction.fromString(sortParts.length > 1 ? sortParts[1] : "desc"), sortParts[0]);
-
-            var result = service.searchByUserRole(allParams, page, size, s, email, role.toString());
-            return ResponseEntity.ok(result);
-
+            return ResponseEntity.ok(cars);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to fetch cars: " + e.getMessage());
         }
     }
+
+
 
 
     // ------------------- Create -------------------

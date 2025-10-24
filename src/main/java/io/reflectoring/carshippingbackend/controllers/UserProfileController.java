@@ -83,7 +83,7 @@ public class UserProfileController {
      *  DELETE PROFILE PICTURE
      * ============================
      */
-    @DeleteMapping("/{userId}/profile-picture")
+    @DeleteMapping("/profile-picture")
     public ResponseEntity<?> deleteProfilePicture(@PathVariable Long userId) {
         try {
             User user = userService.findById(userId)
@@ -110,12 +110,15 @@ public class UserProfileController {
      *  CHANGE PASSWORD
      * ============================
      */
-    @PutMapping("/{userId}/password")
+    @PutMapping("/password")
     public ResponseEntity<?> changePassword(
-            @PathVariable Long userId,
+            Authentication authentication,
             @RequestBody ChangePasswordRequest request) {
 
         try {
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            Long userId = userDetails.getId();
+
             userService.changePassword(userId, request.getCurrentPassword(), request.getNewPassword());
 
             Map<String, String> response = new HashMap<>();
@@ -127,4 +130,5 @@ public class UserProfileController {
             return ResponseEntity.badRequest().body("Failed to change password: " + e.getMessage());
         }
     }
+
 }

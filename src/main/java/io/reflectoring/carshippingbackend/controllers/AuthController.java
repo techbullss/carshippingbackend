@@ -111,7 +111,8 @@ public class AuthController {
                 user.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),
-                roleNames
+                roleNames,
+                user.getProfilePicture()
         );
 
         return ResponseEntity.ok(authResponse);
@@ -154,7 +155,8 @@ public class AuthController {
                 user.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),
-                roles
+                roles,
+                user.getProfilePicture()
         );
 
         return ResponseEntity.ok(authResponse);

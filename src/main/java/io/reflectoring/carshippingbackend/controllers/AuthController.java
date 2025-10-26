@@ -291,7 +291,7 @@ public class AuthController {
         passwordResetTokenRepository.save(resetToken);
 
         // Build reset link (frontend route)
-        String resetLink = "https://f-carshipping.com/reset-password?token=" + token;
+        String resetLink = "https://f-carshipping.com/ResetPasswordPage?token=" + token;
 
         // Use your existing email service
         String subject = "Password Reset Request - FCarShipping";

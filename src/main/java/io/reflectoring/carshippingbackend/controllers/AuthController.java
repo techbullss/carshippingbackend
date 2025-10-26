@@ -6,27 +6,30 @@ import io.reflectoring.carshippingbackend.DTO.SignupRequest;
 import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.Util.JwtUtil;
 
+import io.reflectoring.carshippingbackend.repository.PasswordResetTokenRepository;
+import io.reflectoring.carshippingbackend.repository.UserRepository;
 import io.reflectoring.carshippingbackend.services.AuthService;
 import io.reflectoring.carshippingbackend.services.CloudStorageService;
 import io.reflectoring.carshippingbackend.services.EmailService;
 import io.reflectoring.carshippingbackend.services.UserService;
+import io.reflectoring.carshippingbackend.tables.PasswordResetToken;
 import io.reflectoring.carshippingbackend.tables.User;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -39,6 +42,9 @@ public class AuthController {
     private final UserService userService;
     private final JwtUtil jwtUtil;
     private final CloudStorageService cloudStorageService;
+    private final UserRepository userRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
 
     @Value("${app.jwt.cookie-name}")
@@ -265,5 +271,70 @@ public class AuthController {
                 .build();
 
         response.addHeader("Set-Cookie", cookie.toString());
+    }
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        Optional<User> userOpt = userRepository.findByEmail(email);
+
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+        }
+
+        User user = userOpt.get();
+        String token = UUID.randomUUID().toString();
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .token(token)
+                .user(user)
+                .expiryDate(LocalDateTime.now().plusHours(1))
+                .build();
+        passwordResetTokenRepository.save(resetToken);
+
+        // Build reset link (frontend route)
+        String resetLink = "https://f-carshipping.com/reset-password?token=" + token;
+
+        // Use your existing email service
+        String subject = "Password Reset Request - FCarShipping";
+        String body = "Hello " + user.getFirstName() + ",\n\n"
+                + "We received a request to reset your password.\n"
+                + "Please click the link below to set a new password:\n"
+                + resetLink + "\n\n"
+                + "If you didn’t request this, you can safely ignore this email.\n\n"
+                + "Best regards,\nFCarShipping Support Team";
+
+        try {
+            emailService.sendVerificationEmail(email, body); // ✅ use your existing method
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to send email: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok("Password reset email sent successfully");
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
+        String token = request.get("token");
+        String newPassword = request.get("password");
+
+        Optional<PasswordResetToken> tokenOpt = passwordResetTokenRepository.findByToken(token);
+        if (tokenOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("Invalid or expired reset token");
+        }
+
+        PasswordResetToken resetToken = tokenOpt.get();
+
+        if (resetToken.isExpired()) {
+            passwordResetTokenRepository.delete(resetToken);
+            return ResponseEntity.badRequest().body("Reset token has expired");
+        }
+
+        User user = resetToken.getUser();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        passwordResetTokenRepository.delete(resetToken);
+
+        return ResponseEntity.ok("Password has been reset successfully");
     }
 }

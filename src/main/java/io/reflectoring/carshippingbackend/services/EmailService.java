@@ -33,5 +33,8 @@ public class EmailService {
 
         mailSender.send(message);
     }
+
+    public void sendSimpleMessage(String email, String passwordResetRequest, String s) {
+    }
 }
 

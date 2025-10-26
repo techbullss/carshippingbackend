@@ -26,6 +26,8 @@ public class UserResponse {
     private String country;
     private Set<String> preferredCommunication;
     private boolean newsletter;
+    private String verificationCode;
+    private boolean emailVerified;
     private String shippingFrequency;
     private String vehicleType;
     private String estimatedShippingDate;
@@ -34,4 +36,9 @@ public class UserResponse {
     private Set<String> roles;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String status;
+    private String passportPhoto;
+    private String govtId;
+    private String idNumber;
+
 }

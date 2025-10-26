@@ -1,6 +1,5 @@
 package io.reflectoring.carshippingbackend.controllers;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reflectoring.carshippingbackend.DTO.AuthResponse;
 import io.reflectoring.carshippingbackend.DTO.LoginRequest;
 import io.reflectoring.carshippingbackend.DTO.SignupRequest;
@@ -17,7 +16,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -54,25 +52,35 @@ public class AuthController {
      * 🔹 USER SIGNUP
      * ============================
      */
-    @PostMapping(
-            value = "/signup",
-            consumes = { MediaType.MULTIPART_FORM_DATA_VALUE }
-    )
+    @PostMapping(value = "/signup", consumes =MediaType.MULTIPART_FORM_DATA_VALUE )
     public ResponseEntity<AuthResponse> signup(
-            @RequestPart("data") String requestJson, // receive JSON as string
-            @RequestPart(value = "govtId", required = false) MultipartFile govtId,
-            @RequestPart(value = "passportPhoto", required = false) MultipartFile passportPhoto,
-            HttpServletResponse response
-    ) {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            SignupRequest request = mapper.readValue(requestJson, SignupRequest.class);
+            @RequestParam("data") @Valid SignupRequest request,
+            @RequestParam(value = "govtId", required = false) MultipartFile govtId,
+            @RequestParam(value = "passportPhoto", required = false) MultipartFile passportPhoto,
+            HttpServletResponse response) {
 
+        System.out.println("=== SIGNUP REQUEST RECEIVED ===");
+        System.out.println("Email: " + request.getEmail());
+
+        try {
             Set<Role> roles = new HashSet<>();
             roles.add(Role.SELLER);
             request.setStatus("pending");
+            String verificationCode = String.valueOf(new Random().nextInt(900000) + 100000);
+            request.setVerificationCode(verificationCode);
+            request.setEmailVerified(false);
 
-            // Upload files
+            if (request.getRole() != null) {
+                try {
+                    Role givenRole = Role.valueOf(request.getRole().toUpperCase());
+                    roles.clear();
+                    roles.add(givenRole);
+                } catch (IllegalArgumentException e) {
+                    System.out.println("⚠️ Invalid role provided: " + request.getRole() + ". Defaulting to USER.");
+                }
+            }
+
+            // 🔹 Upload files (if present)
             String govtIdUrl = null;
             String passportPhotoUrl = null;
 
@@ -83,24 +91,26 @@ public class AuthController {
                 passportPhotoUrl = cloudStorageService.uploadFile(passportPhoto, "passport-photos");
             }
 
+            // 🔹 Set file URLs in request before registering
             request.setGovtId(govtIdUrl);
             request.setPassportPhoto(passportPhotoUrl);
 
-            // Save user and generate token
+            // 🔹 Register user
             AuthResponse authResponse = authService.registerUser(request, roles);
+            emailService.sendVerificationEmail(request.getEmail(), verificationCode);
+
+            // 🔹 Generate JWT & cookie
             String token = jwtUtil.generateToken(request.getEmail(), roles);
             setAuthCookie(response, token);
 
+            System.out.println("✅ USER REGISTERED SUCCESSFULLY: " + request.getEmail());
             return ResponseEntity.ok(authResponse);
 
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(new AuthResponse("Registration failed: " + e.getMessage()));
+            System.err.println("❌ SIGNUP ERROR: " + e.getMessage());
+            return ResponseEntity.badRequest().body(new AuthResponse("Registration failed: " + e.getMessage()));
         }
     }
-
     @PostMapping("/verify-code")
     public ResponseEntity<?> verifyEmail(@RequestBody Map<String, String> request) {
         String email = request.get("email");

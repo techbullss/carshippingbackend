@@ -97,7 +97,6 @@ public class AuthController {
 
             // 🔹 Register user
             AuthResponse authResponse = authService.registerUser(request, roles);
-            emailService.sendVerificationEmail(request.getEmail(), verificationCode);
 
             // 🔹 Generate JWT & cookie
             String token = jwtUtil.generateToken(request.getEmail(), roles);

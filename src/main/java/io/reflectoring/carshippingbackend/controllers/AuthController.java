@@ -52,11 +52,11 @@ public class AuthController {
      * 🔹 USER SIGNUP
      * ============================
      */
-    @PostMapping(value = "/signup", consumes =  MediaType.MULTIPART_FORM_DATA_VALUE )
+    @PostMapping(value = "/signup", consumes =MediaType.MULTIPART_FORM_DATA_VALUE )
     public ResponseEntity<AuthResponse> signup(
-            @RequestPart("data") @Valid SignupRequest request,
-            @RequestPart(value = "govtId", required = false) MultipartFile govtId,
-            @RequestPart(value = "passportPhoto", required = false) MultipartFile passportPhoto,
+            @RequestParam("data") @Valid SignupRequest request,
+            @RequestParam(value = "govtId", required = false) MultipartFile govtId,
+            @RequestParam(value = "passportPhoto", required = false) MultipartFile passportPhoto,
             HttpServletResponse response) {
 
         System.out.println("=== SIGNUP REQUEST RECEIVED ===");

@@ -26,14 +26,14 @@ public class AdminController {
      * ============================
      */
     @GetMapping("/users")
-    public ResponseEntity<List<UserResponse>> getAllUsers() {
+    public ResponseEntity<List<User>> getAllUsers() {
         try {
             List<User> users = userService.findAllUsers();
             List<UserResponse> userResponses = users.stream()
                     .map(this::convertToUserResponse)
                     .collect(Collectors.toList());
 
-            return ResponseEntity.ok(userResponses);
+            return ResponseEntity.ok(users);
         } catch (Exception e) {
             throw new RuntimeException("Failed to fetch users: " + e.getMessage());
         }

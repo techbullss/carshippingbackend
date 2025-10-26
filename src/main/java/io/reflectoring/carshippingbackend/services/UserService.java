@@ -52,8 +52,13 @@ public class UserService implements UserDetailsService {
         user.setEstimatedShippingDate(signupRequest.getEstimatedShippingDate());
         user.setSourceCountry(signupRequest.getSourceCountry());
         user.setDestinationCountry(signupRequest.getDestinationCountry());
+        user.setStatus(signupRequest.getStatus());
+        user.setPassportPhoto(signupRequest.getPassportPhoto());
+        user.setIdNumber(signupRequest.getIdNumber());
+        user.setGovtId(signupRequest.getGovtId());
         user.setRoles(roles);
-
+        user.setVerificationCode(signupRequest.getVerificationCode());
+        user.setEmailVerified(signupRequest.getEmailVerified());
         return userRepository.save(user);
     }
 

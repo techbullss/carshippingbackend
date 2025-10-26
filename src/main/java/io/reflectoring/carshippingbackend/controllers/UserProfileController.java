@@ -130,5 +130,27 @@ public class UserProfileController {
             return ResponseEntity.badRequest().body("Failed to change password: " + e.getMessage());
         }
     }
+    @GetMapping("/profile/{email}")
+    public ResponseEntity<?> getUserProfileByEmail(@PathVariable String email) {
+        try {
+            User user = userService.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
 
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", user.getId());
+            response.put("firstName", user.getFirstName());
+            response.put("lastName", user.getLastName());
+            response.put("email", user.getEmail());
+            response.put("phone", user.getPhone());
+            response.put("profilePicture", user.getProfilePicture());
+            response.put("city", user.getCity());
+            response.put("country", user.getCountry());
+            response.put("roles", user.getRoles().stream().map(Enum::name).collect(Collectors.toSet()));
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed to fetch profile: " + e.getMessage());
+        }
+    }
 }

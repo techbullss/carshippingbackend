@@ -10,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -21,6 +23,7 @@ public class AuthService {
     private final UserService userService;
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
+    private final  EmailService emailService;
 
     public AuthResponse registerUser(SignupRequest signupRequest, Set<Role> roles) {
         User user = userService.createUser(signupRequest,roles);
@@ -70,5 +73,46 @@ public class AuthService {
         } catch (Exception e) {
             return Optional.empty();
         }
+    }
+    private String generateVerificationCode() {
+        return String.format("%06d", new Random().nextInt(999999));
+    }
+
+    //  Verify code
+    public boolean verifyEmail(String email, String code) {
+        Optional<User> userOpt = userService.findByEmail(email);
+        if (userOpt.isEmpty()) throw new RuntimeException("User not found");
+
+        User user = userOpt.get();
+
+        if (user.isEmailVerified()) {
+            throw new RuntimeException("Email already verified");
+        }
+
+        if (!Objects.equals(user.getVerificationCode(), code)) {
+            throw new RuntimeException("Invalid verification code");
+        }
+
+        user.setEmailVerified(true);
+        user.setVerificationCode(null);
+        userService.save(user);
+        return true;
+    }
+
+    //  Resend code
+    public void resendVerificationCode(String email) {
+        Optional<User> userOpt = userService.findByEmail(email);
+        if (userOpt.isEmpty()) throw new RuntimeException("User not found");
+
+        User user = userOpt.get();
+
+        if (user.isEmailVerified()) {
+            throw new RuntimeException("Email already verified");
+        }
+
+        String newCode = generateVerificationCode();
+        user.setVerificationCode(newCode);
+        userService.save(user);
+        emailService.sendVerificationEmail(email, newCode);
     }
 }

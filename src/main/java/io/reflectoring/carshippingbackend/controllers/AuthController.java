@@ -7,6 +7,8 @@ import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.Util.JwtUtil;
 
 import io.reflectoring.carshippingbackend.services.AuthService;
+import io.reflectoring.carshippingbackend.services.CloudStorageService;
+import io.reflectoring.carshippingbackend.services.EmailService;
 import io.reflectoring.carshippingbackend.services.UserService;
 import io.reflectoring.carshippingbackend.tables.User;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,12 +16,16 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -32,7 +38,8 @@ public class AuthController {
     private final AuthService authService;
     private final UserService userService;
     private final JwtUtil jwtUtil;
-
+    private final CloudStorageService cloudStorageService;
+    private final EmailService emailService;
 
     @Value("${app.jwt.cookie-name}")
     private String cookieName;
@@ -45,20 +52,27 @@ public class AuthController {
      * 🔹 USER SIGNUP
      * ============================
      */
-    @PostMapping("/signup")
+    @PostMapping(
+            value = "/signup",
+            consumes = { MediaType.MULTIPART_FORM_DATA_VALUE }
+    )
     public ResponseEntity<AuthResponse> signup(
-            @RequestBody @Valid SignupRequest request,
+            @RequestPart("data") @Valid SignupRequest request,
+            @RequestPart(value = "govtId", required = false) MultipartFile govtId,
+            @RequestPart(value = "passportPhoto", required = false) MultipartFile passportPhoto,
             HttpServletResponse response) {
 
         System.out.println("=== SIGNUP REQUEST RECEIVED ===");
         System.out.println("Email: " + request.getEmail());
 
         try {
-            //  Automatically assign default USER role
             Set<Role> roles = new HashSet<>();
             roles.add(Role.SELLER);
+            request.setStatus("pending");
+            String verificationCode = String.valueOf(new Random().nextInt(900000) + 100000);
+            request.setVerificationCode(verificationCode);
+            request.setEmailVerified(false);
 
-            // Optional: If you want to allow specifying role from frontend for testing/admin setup
             if (request.getRole() != null) {
                 try {
                     Role givenRole = Role.valueOf(request.getRole().toUpperCase());
@@ -69,11 +83,27 @@ public class AuthController {
                 }
             }
 
-            // Register user
-            AuthResponse authResponse = authService.registerUser(request, roles);
+            // 🔹 Upload files (if present)
+            String govtIdUrl = null;
+            String passportPhotoUrl = null;
 
-            // Generate JWT token
-            String token = jwtUtil.generateToken(request.getEmail(),roles);
+            if (govtId != null && !govtId.isEmpty()) {
+                govtIdUrl = cloudStorageService.uploadFile(govtId, "user-ids");
+            }
+            if (passportPhoto != null && !passportPhoto.isEmpty()) {
+                passportPhotoUrl = cloudStorageService.uploadFile(passportPhoto, "passport-photos");
+            }
+
+            // 🔹 Set file URLs in request before registering
+            request.setGovtId(govtIdUrl);
+            request.setPassportPhoto(passportPhotoUrl);
+
+            // 🔹 Register user
+            AuthResponse authResponse = authService.registerUser(request, roles);
+            emailService.sendVerificationEmail(request.getEmail(), verificationCode);
+
+            // 🔹 Generate JWT & cookie
+            String token = jwtUtil.generateToken(request.getEmail(), roles);
             setAuthCookie(response, token);
 
             System.out.println("✅ USER REGISTERED SUCCESSFULLY: " + request.getEmail());
@@ -81,7 +111,31 @@ public class AuthController {
 
         } catch (Exception e) {
             System.err.println("❌ SIGNUP ERROR: " + e.getMessage());
-            throw new RuntimeException("Registration failed: " + e.getMessage());
+            return ResponseEntity.badRequest().body(new AuthResponse("Registration failed: " + e.getMessage()));
+        }
+    }
+    @PostMapping("/verify-code")
+    public ResponseEntity<?> verifyEmail(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String code = request.get("code");
+
+        try {
+            authService.verifyEmail(email, code);
+            return ResponseEntity.ok(Map.of("message", "Email verified successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/resend-code")
+    public ResponseEntity<?> resendVerificationCode(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+
+        try {
+            authService.resendVerificationCode(email);
+            return ResponseEntity.ok(Map.of("message", "Verification code resent successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
 

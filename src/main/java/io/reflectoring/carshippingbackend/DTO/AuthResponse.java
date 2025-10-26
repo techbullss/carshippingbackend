@@ -16,4 +16,7 @@ public class AuthResponse {
     private String lastName;
     private Set<String> roles;
     private String profilePicture;
+
+    public AuthResponse(String s) {
+    }
 }

@@ -100,10 +100,22 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "role", length = 20)
     private Set<Role> roles = new HashSet<>();
+    @Column(name = "verification_code")
+    private String verificationCode;
 
+    @Column(name = "email_verified")
+    private boolean emailVerified = false;
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+    @Column(name = "status")
+    private String status;
+    @Column(length = 500)
+    private String passportPhoto;
 
+    @Column(length = 500)
+    private String govtId;
+    @Column(name="idNumber")
+    private String idNumber;
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 

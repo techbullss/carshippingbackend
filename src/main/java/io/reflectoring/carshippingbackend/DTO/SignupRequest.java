@@ -36,7 +36,9 @@ public class SignupRequest {
     private String state;
     private String postalCode;
     private String country;
-
+    private String passportPhoto;
+    private String govtId;
+    private String idNumber;
     // Preferences
     private Set<String> preferredCommunication;
     private boolean newsletter;
@@ -48,4 +50,7 @@ public class SignupRequest {
     private String sourceCountry = "UK";
     private String destinationCountry = "Kenya";
     private String role = "SELLER";
+    private String status;
+    private String VerificationCode;
+    private Boolean EmailVerified;
 }

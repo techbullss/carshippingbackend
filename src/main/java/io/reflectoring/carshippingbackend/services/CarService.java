@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class CarService {
@@ -54,14 +55,11 @@ public class CarService {
         return repo.save(car);
     }
     public Car update(Car car, MultipartFile[] images) throws IOException {
-        // 1️⃣ Fetch the existing car from the DB
-        Optional<Car> existingOpt = repo.findById(car.getId());
-        if (existingOpt.isEmpty()) {
-            throw new RuntimeException("Car not found with ID: " + car.getId());
-        }
-        Car existing = existingOpt.get();
+        // 1️⃣ Fetch existing car
+        Car existing = repo.findById(car.getId())
+                .orElseThrow(() -> new RuntimeException("Car not found with ID: " + car.getId()));
 
-        // 2️⃣ Update all fields
+        // 2️⃣ Update fields
         existing.setBrand(car.getBrand());
         existing.setModel(car.getModel());
         existing.setYearOfManufacture(car.getYearOfManufacture());
@@ -82,10 +80,36 @@ public class CarService {
         existing.setFeatures(car.getFeatures());
         existing.setCustomSpecs(car.getCustomSpecs());
 
-        // 3️⃣ Handle new images (if any)
-        if (images != null && images.length > 0) {
-            List<String> urls = existing.getImageUrls() != null ? new ArrayList<>(existing.getImageUrls()) : new ArrayList<>();
+        // 3️⃣ Prepare image URLs
+        List<String> updatedUrls = new ArrayList<>();
 
+        // 3a️⃣ Keep URLs that were sent from frontend (still active)
+        if (car.getImageUrls() != null && !car.getImageUrls().isEmpty()) {
+            updatedUrls.addAll(car.getImageUrls());
+        }
+
+        // 4️⃣ Delete old images from Cloudinary that are no longer kept
+        if (existing.getImageUrls() != null) {
+            List<String> removedUrls = existing.getImageUrls().stream()
+                    .filter(url -> car.getImageUrls() == null || !car.getImageUrls().contains(url))
+                    .collect(Collectors.toList());
+
+            for (String url : removedUrls) {
+                try {
+                    // Extract Cloudinary public_id (after "/uploads/")
+                    String publicId = extractPublicId(url);
+                    if (publicId != null) {
+                        cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "image"));
+                        System.out.println("🗑️ Deleted from Cloudinary: " + publicId);
+                    }
+                } catch (Exception ex) {
+                    System.err.println("⚠️ Failed to delete Cloudinary image: " + ex.getMessage());
+                }
+            }
+        }
+
+        // 5️⃣ Upload new images
+        if (images != null && images.length > 0) {
             for (MultipartFile f : images) {
                 String uniqueFileName = UUID.randomUUID() + "-" +
                         Objects.requireNonNull(f.getOriginalFilename()).replaceAll("\\s+", "_");
@@ -98,15 +122,33 @@ public class CarService {
                         )
                 );
 
-                urls.add((String) uploadResult.get("secure_url"));
+                updatedUrls.add((String) uploadResult.get("secure_url"));
             }
-
-            existing.setImageUrls(urls);
         }
 
-        // 4️⃣ Save updated car
+        // 6 Save updated URLs and persist
+        existing.setImageUrls(updatedUrls);
         return repo.save(existing);
     }
+
+    /**
+     * Helper method to extract Cloudinary public ID from a secure_url.
+     * Example: https://res.cloudinary.com/demo/image/upload/v1733344/uploads/abc123.jpg
+     * Returns: uploads/abc123
+     */
+    private String extractPublicId(String url) {
+        try {
+            int start = url.indexOf("/uploads/");
+            if (start == -1) return null;
+
+            String afterUploads = url.substring(start + 1); // remove leading '/'
+            String withoutExt = afterUploads.replaceAll("\\.[a-zA-Z0-9]+$", ""); // remove file extension
+            return withoutExt; // e.g. "uploads/abc123"
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public Page<Car> searchByUserRole(Map<String, String> allParams, int page, int size, Sort sort, String currentUserEmail, String currentUserRole) {
         Pageable pageable = PageRequest.of(page, size, sort);
 

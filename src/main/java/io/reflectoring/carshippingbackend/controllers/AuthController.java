@@ -52,10 +52,7 @@ public class AuthController {
      * 🔹 USER SIGNUP
      * ============================
      */
-    @PostMapping(
-            value = "/signup",
-            consumes = { MediaType.MULTIPART_FORM_DATA_VALUE }
-    )
+    @PostMapping(value = "/signup", consumes =  MediaType.MULTIPART_FORM_DATA_VALUE )
     public ResponseEntity<AuthResponse> signup(
             @RequestPart("data") @Valid SignupRequest request,
             @RequestPart(value = "govtId", required = false) MultipartFile govtId,

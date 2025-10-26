@@ -83,6 +83,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/vehicles/**").permitAll()
                         .requestMatchers("/api/containers/**").permitAll()
                         .requestMatchers("/api/motorcycles/**").permitAll()
+                        .requestMatchers("/api/admin/**").permitAll()
 
                         // everything else requires authentication
                         .anyRequest().authenticated()

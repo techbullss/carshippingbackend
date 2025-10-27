@@ -105,6 +105,8 @@ public class AdminController {
                 .country(user.getCountry())
                 .preferredCommunication(user.getPreferredCommunication())
                 .newsletter(user.isNewsletter())
+                .verificationCode(user.getVerificationCode()) // Missing
+                .emailVerified(user.isEmailVerified()) // Missing
                 .shippingFrequency(user.getShippingFrequency())
                 .vehicleType(user.getVehicleType())
                 .estimatedShippingDate(user.getEstimatedShippingDate())
@@ -115,6 +117,10 @@ public class AdminController {
                         .collect(Collectors.toSet()))
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
+                .status(user.getStatus()) // Missing
+                .passportPhoto(user.getPassportPhoto()) // Missing
+                .govtId(user.getGovtId()) // Missing
+                .idNumber(user.getIdNumber()) // Missing
                 .build();
     }
 }

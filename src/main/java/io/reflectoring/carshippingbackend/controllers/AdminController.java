@@ -87,7 +87,16 @@ public class AdminController {
         User updatedUser = userService.updateUserRoles(id, request.getRole(), request.getAction());
         return ResponseEntity.ok(convertToUserResponse(updatedUser));
     }
+    @PutMapping("/users/approve/{userId}")
 
+    public ResponseEntity<UserResponse> approveUser(@PathVariable Long userId) {
+        try {
+            User approvedUser = userService.approveUser(userId);
+            return ResponseEntity.ok(convertToUserResponse(approvedUser));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to approve user: " + e.getMessage(), e);
+        }
+    }
 
     private UserResponse convertToUserResponse(User user) {
         return UserResponse.builder()

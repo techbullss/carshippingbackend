@@ -17,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -269,5 +270,17 @@ public class UserService implements UserDetailsService {
             System.err.println("Error getting current user from token: " + e.getMessage());
             return Optional.empty();
         }
+    }
+    public User approveUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+
+        // Update user status to approved
+        user.setStatus("approved");
+
+        // You might also want to set other fields when approving
+        user.setUpdatedAt(LocalDateTime.now());
+
+        return userRepository.save(user);
     }
 }

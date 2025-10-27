@@ -5,11 +5,14 @@ import io.reflectoring.carshippingbackend.DTO.UserResponse;
 import io.reflectoring.carshippingbackend.services.UserService;
 import io.reflectoring.carshippingbackend.tables.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -26,17 +29,39 @@ public class AdminController {
      * ============================
      */
     @GetMapping("/users")
-    public List<UserResponse> getAllUsers() {
-        try {
-            List<User> users = userService.findAllUsers();
-            return users.stream()
-                    .map(this::convertToUserResponse)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
 
+    public ResponseEntity<?> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search) {
+
+        try {
+            if (search != null && !search.trim().isEmpty()) {
+                Page<User> userPage = userService.searchUsers(search, PageRequest.of(page, size));
+                return ResponseEntity.ok(Map.of(
+                        "content", userPage.getContent().stream()
+                                .map(this::convertToUserResponse)
+                                .collect(Collectors.toList()),
+                        "totalElements", userPage.getTotalElements(),
+                        "totalPages", userPage.getTotalPages(),
+                        "currentPage", page
+                ));
+            } else {
+                Page<User> userPage = (Page<User>) userService.findAllUsers(PageRequest.of(page, size));
+                return ResponseEntity.ok(Map.of(
+                        "content", userPage.getContent().stream()
+                                .map(this::convertToUserResponse)
+                                .collect(Collectors.toList()),
+                        "totalElements", userPage.getTotalElements(),
+                        "totalPages", userPage.getTotalPages(),
+                        "currentPage", page
+                ));
+            }
+        } catch (Exception e) {
             throw new RuntimeException("Failed to fetch users", e);
         }
     }
+
 
     @GetMapping("/users/{id}")
 

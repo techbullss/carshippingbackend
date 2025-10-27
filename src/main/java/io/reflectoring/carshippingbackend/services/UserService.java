@@ -9,6 +9,9 @@ import io.reflectoring.carshippingbackend.configaration.CustomUserDetails;
 import io.reflectoring.carshippingbackend.repository.UserRepository;
 import io.reflectoring.carshippingbackend.tables.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -79,7 +82,7 @@ public class UserService implements UserDetailsService {
 
         return new CustomUserDetails(user); // wrap entity inside CustomUserDetails
     }
-    public List<User> findAllUsers() {
+    public List<User> findAllUsers(PageRequest pageRequest) {
         return userRepository.findAll();
     }
 
@@ -282,5 +285,13 @@ public class UserService implements UserDetailsService {
         user.setUpdatedAt(LocalDateTime.now());
 
         return userRepository.save(user);
+    }
+    public Page<User> findAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable);
+    }
+
+    public Page<User> searchUsers(String searchTerm, Pageable pageable) {
+        return userRepository.findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
+                searchTerm, searchTerm, searchTerm, pageable);
     }
 }

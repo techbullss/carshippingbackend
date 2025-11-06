@@ -23,7 +23,7 @@ import java.util.Optional;
 import java.util.Set;
 
 @RestController
-@CrossOrigin(origins = "https://f-carshipping.com/") // ADD allowCredentials
+@CrossOrigin(origins = "https://www.f-carshipping.com/") // ADD allowCredentials
 @RequestMapping("/api/cars")
 public class CarController {
 

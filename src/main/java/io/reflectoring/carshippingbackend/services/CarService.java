@@ -21,8 +21,8 @@ public class CarService {
 
     private String uploadDir;
 
-    public CarService(CarRepository repo, Cloudinary cloudinary) { this.repo = repo;
-        this.cloudinary = cloudinary;
+    public CarService(CarRepository repo, Cloudinary cloudinary,EmailService emailService) { this.repo = repo;
+        this.cloudinary = cloudinary; this.emailService=emailService;
     }
 
     public Page<Car> search(Map<String, String> params, int page, int size, Sort sort) {

@@ -41,7 +41,7 @@ AND
 """)
     Page<Car> searchBySeller(@Param("filters") Map<String, String> filters, Pageable pageable, @Param("email") String email);
 
-
+    Page<Car> findByStatus(String status, Pageable pageable);
 
 }
 

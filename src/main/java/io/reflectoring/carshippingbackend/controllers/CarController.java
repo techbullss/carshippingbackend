@@ -12,6 +12,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -38,29 +39,54 @@ public class CarController {
 
     // ------------------- Search / List -------------------
     @GetMapping
-    public ResponseEntity<?> search(@RequestParam Map<String,String> allParams,
-                                    @RequestParam(defaultValue = "0") int page,
-                                    @RequestParam(defaultValue = "12") int size,
-                                    @RequestParam(defaultValue = "priceKes,desc") String sort
-                                    ) { // ADD Authentication parameter
+    public ResponseEntity<?> search(
+            @RequestParam Map<String, String> allParams,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size,
+            @RequestParam(defaultValue = "priceKes,desc") String sort
+    ) {
         try {
-            // Check if user is authenticated
-
             String[] sortParts = sort.split(",");
-            Sort s = Sort.by(Sort.Direction.fromString(sortParts.length>1?sortParts[1]:"desc"), sortParts[0]);
-            var result = service.search(allParams, page, size, s);
+            Sort s = Sort.by(Sort.Direction.fromString(sortParts.length > 1 ? sortParts[1] : "desc"), sortParts[0]);
+
+            // Only return APPROVED cars
+            var result = service.searchApproved(allParams, page, size, s);
+
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
     }
+    @PutMapping("/approve/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> approveCar(@PathVariable Long id) {
+        try {
+            Car updated = service.approveCar(id);
+            return ResponseEntity.ok(updated);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
+    }
+    @PutMapping("/reject/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> rejectCar(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        try {
+            String reason = body.getOrDefault("reason", "No reason provided");
+            Car updated = service.rejectCar(id, reason);
+            return ResponseEntity.ok(updated);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
+    }
+
+
     @PostMapping("/dashboard")
     public ResponseEntity<?> dashboard(
             @RequestParam Map<String, String> allParams,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
             @RequestParam(defaultValue = "priceKes,desc") String sort,
-            @RequestBody Map<String, String> userPayload // ✅ Frontend will send this
+            @RequestBody Map<String, String> userPayload //  Frontend will send this
     ) {
         try {
             String email = userPayload.get("email");
@@ -81,29 +107,29 @@ public class CarController {
                     .body("Failed to fetch cars: " + e.getMessage());
         }
     }
-
-
-
-
     // ------------------- Create -------------------
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> create(
             @RequestPart("car") Car car,
             @RequestPart(value = "images", required = false) MultipartFile[] images,
-            Authentication authentication // ADD Authentication parameter
-
+            Authentication authentication
     ) throws IOException {
         try {
             if (authentication == null || !authentication.isAuthenticated()) {
                 return ResponseEntity.status(401).body("Authentication required");
             }
 
-            Car created = service.create(car, images);
+            // Extract user details from the authenticated principal
+            String userEmail = authentication.getName(); // typical for username/email
+            String userRole = authentication.getAuthorities().iterator().next().getAuthority();
+
+            Car created = service.create(car, images, userEmail, userRole);
+
             return ResponseEntity.ok(created);
+
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
-
     }
 
     // ------------------- Get by ID -------------------

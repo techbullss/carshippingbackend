@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 public class CarService {
     private final CarRepository repo;
     private final Cloudinary cloudinary;
+    private EmailService emailService;
 
     private String uploadDir;
 
@@ -29,11 +30,55 @@ public class CarService {
         Pageable pageable = PageRequest.of(page, size, sort);
         return repo.findAll(spec, pageable);
     }
+    public Page<Car> searchApproved(Map<String, String> params, int page, int size, Sort sort) {
+        var spec = CarSpecification.byFilters(params)
+                .and((root, query, cb) -> cb.equal(root.get("status"), "APPROVED"));
+        Pageable pageable = PageRequest.of(page, size, sort);
+        return repo.findAll(spec, pageable);
+    }
+    public Car approveCar(Long id) {
+        Car car = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Car not found"));
 
-    public Car create(Car car, MultipartFile[] images) throws IOException {
+        car.setStatus("APPROVED");
+        Car saved = repo.save(car);
+
+        // 📧 Notify seller
+        if (car.getPostedBy() != null) {
+            String subject = "Your Car Listing Has Been Approved!";
+            String content = String.format("""
+                    Dear Seller,
+
+                    Great news! Your car listing for %s %s (Ref: %s) has been approved by our admin team.
+
+                    It is now visible to all buyers on f-carshipping.com.
+
+                    Regards,
+                    The f-carshipping.com Team
+                    """, car.getBrand(), car.getModel(), car.getRefNo());
+
+            emailService.sendSimpleMessage(car.getPostedBy(), subject, content);
+        }
+
+        return saved;
+    }
+    public Car create(Car car, MultipartFile[] images, String userEmail, String userRole) throws IOException {
+        // Assign poster info
+        car.setPostedBy(userEmail);
+        car.setPostedRole(userRole.replace("ROLE_", "")); // clean role name
+
+        // Determine approval status
+        if (userRole.equalsIgnoreCase("ROLE_ADMIN")) {
+            car.setStatus("APPROVED");
+        } else if (userRole.equalsIgnoreCase("ROLE_SELLER")) {
+            car.setStatus("PENDING");
+        } else {
+            throw new RuntimeException("Unauthorized user role: " + userRole);
+        }
+
+        // Handle image uploads
         if (images != null && images.length > 0) {
             List<String> urls = new ArrayList<>();
-
             for (MultipartFile f : images) {
                 String uniqueFileName = UUID.randomUUID() + "-" +
                         Objects.requireNonNull(f.getOriginalFilename()).replaceAll("\\s+", "_");
@@ -42,18 +87,45 @@ public class CarService {
                         f.getBytes(),
                         ObjectUtils.asMap(
                                 "public_id", "uploads/" + uniqueFileName,
-                                "resource_type", "auto" // handles all types
+                                "resource_type", "auto"
                         )
                 );
-
                 urls.add((String) uploadResult.get("secure_url"));
             }
-
-        car.setImageUrls(urls);
+            car.setImageUrls(urls);
         }
 
         return repo.save(car);
     }
+    public Car rejectCar(Long id, String reason) {
+        Car car = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Car not found"));
+
+        car.setStatus("REJECTED");
+        Car saved = repo.save(car);
+
+        // 📧 Notify seller
+        if (car.getPostedBy() != null) {
+            String subject = "Your Car Listing Has Been Rejected";
+            String content = String.format("""
+                    Dear Seller,
+
+                    Unfortunately, your car listing for %s %s (Ref: %s) has been rejected.
+
+                    Reason: %s
+
+                    You can edit and resubmit the listing for review.
+
+                    Regards,
+                    The f-carshipping.com Team
+                    """, car.getBrand(), car.getModel(), car.getRefNo(), reason != null ? reason : "Not specified");
+
+            emailService.sendSimpleMessage(car.getPostedBy(), subject, content);
+        }
+
+        return saved;
+    }
+
     public Car update(Car car, MultipartFile[] images) throws IOException {
         // 1️⃣ Fetch existing car
         Car existing = repo.findById(car.getId())

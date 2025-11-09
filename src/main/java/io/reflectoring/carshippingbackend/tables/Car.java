@@ -67,7 +67,9 @@ public class Car {
     private String features;
     private String seller;
     private String roles;
-
+    private String postedBy; // email of the person posting
+    private String postedRole;
+    private String status;
 
     // FIX 2: Change LONGTEXT to CLOB for Oracle
     @Lob

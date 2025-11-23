@@ -30,7 +30,6 @@ public class AdminController {
      * ============================
      */
     @GetMapping("/users")
-
     public ResponseEntity<?> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -65,7 +64,6 @@ public class AdminController {
 
 
     @GetMapping("/users/{id}")
-
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         User user = userService.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
@@ -93,7 +91,6 @@ public class AdminController {
      * ============================
      */
     @DeleteMapping("/users/{id}")
-
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
         return ResponseEntity.ok().body("User deleted successfully");
@@ -105,7 +102,6 @@ public class AdminController {
      * ============================
      */
     @PutMapping("/users/roles/{id}")
-
     public ResponseEntity<UserResponse> updateUserRoles(
             @PathVariable Long id,
             @RequestBody UpdateRoleRequest request) {
@@ -114,7 +110,6 @@ public class AdminController {
         return ResponseEntity.ok(convertToUserResponse(updatedUser));
     }
     @PutMapping("/users/approve/{userId}")
-
     public ResponseEntity<UserResponse> approveUser(@PathVariable Long userId) {
         try {
             User approvedUser = userService.approveUser(userId);

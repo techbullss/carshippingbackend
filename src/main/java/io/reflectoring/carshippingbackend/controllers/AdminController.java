@@ -17,9 +17,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/admin")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "https://f-carshipping.com")
+@RequestMapping("/api/admin")
 public class AdminController {
     @Autowired
     private final UserService userService;
@@ -62,7 +62,10 @@ public class AdminController {
         }
     }
 
-
+    @GetMapping("/test")
+    public ResponseEntity<String> testEndpoint() {
+        return ResponseEntity.ok("Test endpoint works!");
+    }
     @GetMapping("/users/{id}")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         User user = userService.findById(id)

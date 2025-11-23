@@ -66,16 +66,20 @@ public class CommercialVehicle {
     private String location;
 
     @Column(name = "owner_type")
-    private String ownerType;
+    private String ownerType; // e.g., "Individual" or "Dealer"
 
     private String features;
 
-    // FIX: Change TEXT to CLOB for Oracle
+    @Column(name = "owner_email")
+    private String ownerEmail; // 🔹 New: For dashboard filtering
+
+    private String status; // 🔹 New: "PENDING", "APPROVED", "REJECTED"
+    private String rejectionReason; // 🔹 New: Reason if rejected
+
     @Lob
     @Column(columnDefinition = "LONGTEXT")
     private String customSpecs; // JSON string
 
-    // FIX: Add proper collection mapping for Oracle
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(
             name = "commercial_vehicle_images",

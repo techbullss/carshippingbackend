@@ -3,6 +3,7 @@ package io.reflectoring.carshippingbackend.configaration;
 import io.reflectoring.carshippingbackend.Util.JwtUtil;
 import io.reflectoring.carshippingbackend.services.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -28,8 +29,9 @@ import java.util.List;
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-
+@Autowired
     private final CustomUserDetailsService customUserDetailsService;
+@Autowired
     private final JwtUtil jwtUtil;
 
     @Bean
@@ -75,19 +77,37 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // allow frontend preflight OPTIONS requests
+                        // Allow OPTIONS preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // allow unauthenticated access to auth endpoints
+
+                        // Public routes (like login/register)
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/cars/**").permitAll()
-                        .requestMatchers("/api/vehicles/**").permitAll()
-                        .requestMatchers("/api/containers/**").permitAll()
-                        .requestMatchers("/api/motorcycles/**").permitAll()
 
+                        // Public GETs but protected modifications
+                        .requestMatchers(HttpMethod.GET, "/api/cars/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/motorcycles/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/commercial/**").permitAll()
 
-                        // everything else requires authentication
+                        // Protected write operations for authenticated users
+                        .requestMatchers(HttpMethod.POST, "/api/cars/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/cars/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/cars/**").authenticated()
+
+                        .requestMatchers(HttpMethod.POST, "/api/motorcycles/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/motorcycles/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/motorcycles/**").authenticated()
+
+                        .requestMatchers(HttpMethod.POST, "/api/commercial/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/commercial/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/commercial/**").authenticated()
+
+                        // Admin endpoints (extra restricted)
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // Everything else still requires authentication
                         .anyRequest().authenticated()
                 )
+
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
 

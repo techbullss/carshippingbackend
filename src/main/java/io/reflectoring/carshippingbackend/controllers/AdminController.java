@@ -5,6 +5,7 @@ import io.reflectoring.carshippingbackend.DTO.UserResponse;
 import io.reflectoring.carshippingbackend.services.UserService;
 import io.reflectoring.carshippingbackend.tables.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @CrossOrigin(origins = "https://f-carshipping.com/", allowCredentials = "true")
 public class AdminController {
-
+    @Autowired
     private final UserService userService;
 
     /**

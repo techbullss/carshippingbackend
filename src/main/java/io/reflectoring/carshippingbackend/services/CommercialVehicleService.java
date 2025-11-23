@@ -4,12 +4,11 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleDTO;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleResponseDTO;
+import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.repository.CommercialVehicleRepository;
 import io.reflectoring.carshippingbackend.tables.CommercialVehicle;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,13 +22,11 @@ public class CommercialVehicleService {
     private final CommercialVehicleRepository repo;
     private final Cloudinary cloudinary;
 
-    // 🔹 Upload images to Cloudinary
+    // ------------------- Upload Images -------------------
     private List<String> uploadImages(List<MultipartFile> images) throws IOException {
         List<String> urls = new ArrayList<>();
         for (MultipartFile f : images) {
-            String uniqueFileName = UUID.randomUUID() + "-" +
-                    Objects.requireNonNull(f.getOriginalFilename()).replaceAll("\\s+", "_");
-
+            String uniqueFileName = UUID.randomUUID() + "-" + Objects.requireNonNull(f.getOriginalFilename()).replaceAll("\\s+", "_");
             Map uploadResult = cloudinary.uploader().upload(
                     f.getBytes(),
                     ObjectUtils.asMap(
@@ -42,7 +39,7 @@ public class CommercialVehicleService {
         return urls;
     }
 
-    // 🔹 Convert Entity → Response DTO
+    // ------------------- Convert Entity → DTO -------------------
     private CommercialVehicleResponseDTO toDto(CommercialVehicle vehicle) {
         CommercialVehicleResponseDTO dto = new CommercialVehicleResponseDTO();
         dto.setId(vehicle.getId());
@@ -74,7 +71,7 @@ public class CommercialVehicleService {
         return dto;
     }
 
-    // 🔹 Map DTO → Entity
+    // ------------------- Map DTO → Entity -------------------
     private void mapDtoToEntity(CommercialVehicleDTO dto, CommercialVehicle vehicle) {
         vehicle.setBrand(dto.getBrand());
         vehicle.setModel(dto.getModel());
@@ -102,68 +99,101 @@ public class CommercialVehicleService {
         vehicle.setCustomSpecs(dto.getCustomSpecs());
     }
 
-    // 🔹 Create
-    public CommercialVehicleResponseDTO createVehicle(CommercialVehicleDTO dto) throws IOException {
+    // ------------------- Create -------------------
+    public CommercialVehicleResponseDTO createVehicle(CommercialVehicleDTO dto, String userEmail, String userRole) throws IOException {
         CommercialVehicle vehicle = new CommercialVehicle();
         mapDtoToEntity(dto, vehicle);
-
         if (dto.getImages() != null && !dto.getImages().isEmpty()) {
             vehicle.setImageUrls(uploadImages(dto.getImages()));
         }
-
+        // You can add logic to set owner email, status, etc. if needed
         CommercialVehicle saved = repo.save(vehicle);
         return toDto(saved);
     }
 
-    // 🔹 Read all
-    public List<CommercialVehicleResponseDTO> getAllVehicles() {
-        return repo.findAll().stream().map(this::toDto).toList();
-    }
-
-    // 🔹 Read by id
+    // ------------------- Read -------------------
     public CommercialVehicleResponseDTO getVehicle(Long id) {
         CommercialVehicle vehicle = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found with id " + id));
         return toDto(vehicle);
     }
 
-    // 🔹 Update
+    // ------------------- Update -------------------
     public CommercialVehicleResponseDTO updateVehicle(Long id, CommercialVehicleDTO dto) throws IOException {
         CommercialVehicle existing = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found with id " + id));
-
         mapDtoToEntity(dto, existing);
-
         if (dto.getImages() != null && !dto.getImages().isEmpty()) {
             existing.setImageUrls(uploadImages(dto.getImages()));
         }
-
         CommercialVehicle updated = repo.save(existing);
         return toDto(updated);
     }
 
-    // 🔹 Delete
+    // ------------------- Delete -------------------
     public void deleteVehicle(Long id) {
         repo.deleteById(id);
     }
-    public Page<CommercialVehicleResponseDTO> searchVehicles(int page, int size, String search, String type) {
-        Pageable pageable = PageRequest.of(page, size);
 
+    // ------------------- Approve / Reject -------------------
+    public CommercialVehicleResponseDTO approveVehicle(Long id) {
+        CommercialVehicle vehicle = repo.findById(id).orElseThrow(() -> new RuntimeException("Vehicle not found"));
+        // Implement your approval logic (e.g., set status = "APPROVED")
+        // vehicle.setStatus("APPROVED");
+        repo.save(vehicle);
+        return toDto(vehicle);
+    }
+
+    public CommercialVehicleResponseDTO rejectVehicle(Long id, String reason) {
+        CommercialVehicle vehicle = repo.findById(id).orElseThrow(() -> new RuntimeException("Vehicle not found"));
+        // Implement your reject logic (e.g., set status = "REJECTED" and reason)
+        // vehicle.setStatus("REJECTED");
+        // vehicle.setRejectReason(reason);
+        repo.save(vehicle);
+        return toDto(vehicle);
+    }
+
+    // ------------------- Dashboard (User Role) -------------------
+    public Page<CommercialVehicleResponseDTO> dashboardByUser(String email, String role, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "priceKes"));
+        Page<CommercialVehicle> results;
+        // Example: admins see all, others see their vehicles
+        if (role.equals(Role.ADMIN.name())) {
+            results = repo.findAll(pageable);
+        } else {
+            // Add filtering by owner email if your entity has it
+            // results = repo.findByOwnerEmail(email, pageable);
+            results = repo.findAll(pageable); // Placeholder
+        }
+        return results.map(this::toDto);
+    }
+
+    // ------------------- Latest Arrivals -------------------
+    public List<CommercialVehicleResponseDTO> getLatestArrivals() {
+        Pageable pageable = PageRequest.of(0, 6, Sort.by(Sort.Direction.DESC, "id"));
+        return repo.findAll(pageable).getContent().stream().map(this::toDto).toList();
+    }
+
+    // ------------------- Similar Vehicles -------------------
+    public List<CommercialVehicleResponseDTO> getSimilarVehicles(String brand, String model, Long excludeId) {
+        List<CommercialVehicle> vehicles = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCase(brand, model, PageRequest.of(0, 10)).getContent();
+        if (excludeId != null) vehicles.removeIf(v -> v.getId().equals(excludeId));
+        return vehicles.stream().map(this::toDto).toList();
+    }
+
+    // ------------------- Search -------------------
+    public Page<CommercialVehicleResponseDTO> searchVehicles(int page, int size, String search, String type, Sort sort) {
+        Pageable pageable = PageRequest.of(page, size, sort);
         Page<CommercialVehicle> results;
         if (search != null && !search.isBlank() && type != null && !type.isBlank()) {
-            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndTypeIgnoreCase(
-                    search, search, type, pageable
-            );
+            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndTypeIgnoreCase(search, search, type, pageable);
         } else if (search != null && !search.isBlank()) {
-            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCase(
-                    search, search, pageable
-            );
+            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCase(search, search, pageable);
         } else if (type != null && !type.isBlank()) {
             results = repo.findByTypeIgnoreCase(type, pageable);
         } else {
             results = repo.findAll(pageable);
         }
-
         return results.map(this::toDto);
     }
 }

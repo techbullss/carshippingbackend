@@ -82,9 +82,6 @@ public class UserService implements UserDetailsService {
 
         return new CustomUserDetails(user); // wrap entity inside CustomUserDetails
     }
-    public List<User> findAllUsers(PageRequest pageRequest) {
-        return userRepository.findAll();
-    }
 
 
 

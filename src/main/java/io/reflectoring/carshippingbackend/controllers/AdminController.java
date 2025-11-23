@@ -38,11 +38,10 @@ public class AdminController {
 
         try {
             Page<User> userPage;
-
             if (search.isPresent() && !search.get().trim().isEmpty()) {
-                userPage = userService.searchUsers(search.get(), PageRequest.of(page, size));
+                userPage = userService.searchUsers(search.get().trim(), PageRequest.of(page, size));
             } else {
-                userPage = (Page<User>) userService.findAllUsers(PageRequest.of(page, size));
+                userPage = userService.findAllUsers(PageRequest.of(page, size));
             }
 
             return ResponseEntity.ok(Map.of(

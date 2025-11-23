@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "https://f-carshipping.com/", allowCredentials = "true")
+@CrossOrigin(origins = "https://f-carshipping.com", allowCredentials = "true")
 public class UserProfileController {
 
     private final UserService userService;

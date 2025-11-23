@@ -16,7 +16,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/motorcycles")
-@CrossOrigin(origins = "https://f-carshipping.com/")
+@CrossOrigin(origins = "https://f-carshipping.com")
 @RequiredArgsConstructor
 public class MotorcycleController {
 

@@ -24,7 +24,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/vehicles")
-@CrossOrigin(origins = "https://f-carshipping.com/")
+@CrossOrigin(origins = "https://f-carshipping.com")
 @RequiredArgsConstructor
 public class CommercialVehicleController {
 

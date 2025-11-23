@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "https://f-carshipping.com/", allowCredentials = "true")
+@CrossOrigin(origins = "https://f-carshipping.com", allowCredentials = "true")
 public class AdminController {
     @Autowired
     private final UserService userService;

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -33,34 +34,31 @@ public class AdminController {
     public ResponseEntity<?> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) Optional<String> search) {
 
         try {
-            if (search != null && !search.trim().isEmpty()) {
-                Page<User> userPage = userService.searchUsers(search, PageRequest.of(page, size));
-                return ResponseEntity.ok(Map.of(
-                        "content", userPage.getContent().stream()
-                                .map(this::convertToUserResponse)
-                                .collect(Collectors.toList()),
-                        "totalElements", userPage.getTotalElements(),
-                        "totalPages", userPage.getTotalPages(),
-                        "currentPage", page
-                ));
+            Page<User> userPage;
+
+            if (search.isPresent() && !search.get().trim().isEmpty()) {
+                userPage = userService.searchUsers(search.get(), PageRequest.of(page, size));
             } else {
-                Page<User> userPage = (Page<User>) userService.findAllUsers(PageRequest.of(page, size));
-                return ResponseEntity.ok(Map.of(
-                        "content", userPage.getContent().stream()
-                                .map(this::convertToUserResponse)
-                                .collect(Collectors.toList()),
-                        "totalElements", userPage.getTotalElements(),
-                        "totalPages", userPage.getTotalPages(),
-                        "currentPage", page
-                ));
+                userPage = (Page<User>) userService.findAllUsers(PageRequest.of(page, size));
             }
+
+            return ResponseEntity.ok(Map.of(
+                    "content", userPage.getContent().stream()
+                            .map(this::convertToUserResponse)
+                            .collect(Collectors.toList()),
+                    "totalElements", userPage.getTotalElements(),
+                    "totalPages", userPage.getTotalPages(),
+                    "currentPage", page
+            ));
+
         } catch (Exception e) {
             throw new RuntimeException("Failed to fetch users", e);
         }
     }
+
 
     @GetMapping("/test")
     public ResponseEntity<String> testEndpoint() {

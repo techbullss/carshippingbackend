@@ -102,7 +102,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/commercial/**").authenticated()
 
                         // Admin endpoints (extra restricted)
-                        .requestMatchers("/api/admin/users").permitAll()
+                        // Allow GET requests to users endpoint
+                        .requestMatchers(HttpMethod.GET, "/api/admin/users", "/api/admin/users/**").permitAll()
+
 
                         // Everything else still requires authentication
                         .anyRequest().authenticated()

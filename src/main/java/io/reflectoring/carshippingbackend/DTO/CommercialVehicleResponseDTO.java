@@ -32,6 +32,7 @@ public class CommercialVehicleResponseDTO {
     private String ownerType;
     private String features;
     private String customSpecs;
+    private String seller;
 
     private List<String> imageUrls;
 }

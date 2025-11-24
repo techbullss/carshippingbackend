@@ -31,6 +31,7 @@ public class CommercialVehicleDTO {
     private String features;
     private String customSpecs;
     private String status;
+    private String seller;
 
 
     // For uploads

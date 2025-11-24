@@ -70,6 +70,7 @@ public class CommercialVehicle {
     private String ownerType; // e.g., "Individual" or "Dealer"
 
     private String features;
+    private String seller;
 
     @Column(name = "owner_email")
     private String ownerEmail; // 🔹 New: For dashboard filtering

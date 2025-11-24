@@ -60,7 +60,7 @@ public interface CommercialVehicleRepository extends JpaRepository<CommercialVeh
             String brand, String model, Long excludeId
     );
     @Query("""
-SELECT c FROM Car c
+SELECT c FROM CommercialVehicle c
 WHERE 
     (:#{#filters == null || #filters['brand'] == null || #filters['brand'] == ''} = true OR c.brand LIKE %:#{#filters['brand']}%)
 AND 

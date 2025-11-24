@@ -89,31 +89,34 @@ public class CommercialVehicleController {
     }
     @PostMapping("/dashboard")
     public ResponseEntity<?> dashboard(
-            @RequestParam Map<String, String> allParams,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "12") int size,
-            @RequestParam(defaultValue = "priceKes,desc") String sort,
-            @RequestBody Map<String, String> userPayload //  Frontend will send this
+            @RequestBody Map<String, Object> payload
     ) {
         try {
-            String email = userPayload.get("email");
-            String role = userPayload.get("role");
+            String email = (String) payload.get("email");
+            String role = (String) payload.get("role");
 
-            if (email == null || role == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body("Missing email or role");
-            }
+            int page = (int) payload.getOrDefault("page", 0);
+            int size = (int) payload.getOrDefault("size", 12);
+            String search = (String) payload.getOrDefault("search", "");
+            String type = (String) payload.getOrDefault("type", "");
 
             Sort sortObj = Sort.by(Sort.Order.desc("priceKes"));
-            Page<CommercialVehicle> cars = service.searchByUserRole(allParams, page, size, sortObj, email, role);
+
+            Page<CommercialVehicle> cars =
+                    service.searchByUserRole(
+                            Map.of("search", search, "type", type),
+                            page, size, sortObj, email, role
+                    );
 
             return ResponseEntity.ok(cars);
+
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to fetch cars: " + e.getMessage());
         }
     }
+
     // ------------------- Approve -------------------
     @PutMapping("/approve/{id}")
     @PreAuthorize("hasRole('ADMIN')")

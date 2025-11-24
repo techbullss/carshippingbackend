@@ -6,6 +6,7 @@ import io.reflectoring.carshippingbackend.DTO.CommercialVehicleDTO;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleResponseDTO;
 import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.repository.CommercialVehicleRepository;
+import io.reflectoring.carshippingbackend.tables.Car;
 import io.reflectoring.carshippingbackend.tables.CommercialVehicle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -138,8 +139,7 @@ public class CommercialVehicleService {
     // ------------------- Approve / Reject -------------------
     public CommercialVehicleResponseDTO approveVehicle(Long id) {
         CommercialVehicle vehicle = repo.findById(id).orElseThrow(() -> new RuntimeException("Vehicle not found"));
-        // Implement your approval logic (e.g., set status = "APPROVED")
-        // vehicle.setStatus("APPROVED");
+        vehicle.setStatus("Approved");
         repo.save(vehicle);
         return toDto(vehicle);
     }
@@ -147,26 +147,13 @@ public class CommercialVehicleService {
     public CommercialVehicleResponseDTO rejectVehicle(Long id, String reason) {
         CommercialVehicle vehicle = repo.findById(id).orElseThrow(() -> new RuntimeException("Vehicle not found"));
         // Implement your reject logic (e.g., set status = "REJECTED" and reason)
-        // vehicle.setStatus("REJECTED");
-        // vehicle.setRejectReason(reason);
+        vehicle.setStatus("REJECTED");
+         vehicle.setRejectionReason(reason);
         repo.save(vehicle);
         return toDto(vehicle);
     }
 
     // ------------------- Dashboard (User Role) -------------------
-    public Page<CommercialVehicleResponseDTO> dashboardByUser(String email, String role, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "priceKes"));
-        Page<CommercialVehicle> results;
-        // Example: admins see all, others see their vehicles
-        if (role.equals(Role.ADMIN.name())) {
-            results = repo.findAll(pageable);
-        } else {
-            // Add filtering by owner email if your entity has it
-            // results = repo.findByOwnerEmail(email, pageable);
-            results = repo.findAll(pageable); // Placeholder
-        }
-        return results.map(this::toDto);
-    }
 
     // ------------------- Latest Arrivals -------------------
     public List<CommercialVehicleResponseDTO> getLatestArrivals() {
@@ -176,8 +163,10 @@ public class CommercialVehicleService {
 
     // ------------------- Similar Vehicles -------------------
     public List<CommercialVehicleResponseDTO> getSimilarVehicles(String brand, String model, Long excludeId) {
-        List<CommercialVehicle> vehicles = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCase(brand, model, PageRequest.of(0, 10)).getContent();
-        if (excludeId != null) vehicles.removeIf(v -> v.getId().equals(excludeId));
+        List<CommercialVehicle> vehicles =
+                repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndStatusIgnoreCase(
+                        brand, model, "Approved", PageRequest.of(0, 10)
+                ).getContent();       if (excludeId != null) vehicles.removeIf(v -> v.getId().equals(excludeId));
         return vehicles.stream().map(this::toDto).toList();
     }
 
@@ -185,15 +174,36 @@ public class CommercialVehicleService {
     public Page<CommercialVehicleResponseDTO> searchVehicles(int page, int size, String search, String type, Sort sort) {
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<CommercialVehicle> results;
+
         if (search != null && !search.isBlank() && type != null && !type.isBlank()) {
-            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndTypeIgnoreCase(search, search, type, pageable);
+            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndTypeIgnoreCaseAndStatusIgnoreCase(
+                    search, search, type, "approved", pageable
+            );
         } else if (search != null && !search.isBlank()) {
-            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCase(search, search, pageable);
+            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndStatusIgnoreCase(
+                    search, search, "approved", pageable
+            );
         } else if (type != null && !type.isBlank()) {
-            results = repo.findByTypeIgnoreCase(type, pageable);
+            results = repo.findByTypeIgnoreCaseAndStatusIgnoreCase(
+                    type, "approved", pageable
+            );
         } else {
-            results = repo.findAll(pageable);
+            results = repo.findByStatusIgnoreCase("approved", pageable);
         }
+
         return results.map(this::toDto);
     }
+    public Page<CommercialVehicle> searchByUserRole(Map<String, String> allParams, int page, int size, Sort sort, String currentUserEmail, String currentUserRole) {
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        switch (currentUserRole.replace("ROLE_", "").toUpperCase()) {
+            case "ADMIN":
+                return repo.search(allParams, pageable);
+            case "SELLER":
+                return repo.searchBySeller(allParams, pageable, currentUserEmail);
+            default:
+                throw new RuntimeException("Unauthorized access");
+        }
+    }
+
 }

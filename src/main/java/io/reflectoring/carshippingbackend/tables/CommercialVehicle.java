@@ -65,6 +65,7 @@ public class CommercialVehicle {
     private String description;
     private String location;
 
+
     @Column(name = "owner_type")
     private String ownerType; // e.g., "Individual" or "Dealer"
 

@@ -30,6 +30,8 @@ public class CommercialVehicleDTO {
     private String ownerType;
     private String features;
     private String customSpecs;
+    private String status;
+
 
     // For uploads
     private List<MultipartFile> images;

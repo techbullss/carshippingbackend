@@ -3,6 +3,7 @@ package io.reflectoring.carshippingbackend.controllers;
 import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.configaration.CustomUserDetails;
 import io.reflectoring.carshippingbackend.services.CommercialVehicleService;
+import io.reflectoring.carshippingbackend.tables.Car;
 import io.reflectoring.carshippingbackend.tables.CommercialVehicle;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleDTO;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleResponseDTO;
@@ -57,6 +58,7 @@ public class CommercialVehicleController {
         String userEmail = authentication.getName();
         String userRole = authentication.getAuthorities().iterator().next().getAuthority();
         dto.setImages(images);
+        dto.setStatus("PENDING");
         CommercialVehicleResponseDTO created = service.createVehicle(dto, userEmail, userRole);
         return ResponseEntity.ok(created);
     }
@@ -85,7 +87,33 @@ public class CommercialVehicleController {
         dto.setImages(images);
         return ResponseEntity.ok(service.updateVehicle(id, dto));
     }
+    @PostMapping("/dashboard")
+    public ResponseEntity<?> dashboard(
+            @RequestParam Map<String, String> allParams,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size,
+            @RequestParam(defaultValue = "priceKes,desc") String sort,
+            @RequestBody Map<String, String> userPayload //  Frontend will send this
+    ) {
+        try {
+            String email = userPayload.get("email");
+            String role = userPayload.get("role");
 
+            if (email == null || role == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Missing email or role");
+            }
+
+            Sort sortObj = Sort.by(Sort.Order.desc("priceKes"));
+            Page<CommercialVehicle> cars = service.searchByUserRole(allParams, page, size, sortObj, email, role);
+
+            return ResponseEntity.ok(cars);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to fetch cars: " + e.getMessage());
+        }
+    }
     // ------------------- Approve -------------------
     @PutMapping("/approve/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -120,25 +148,6 @@ public class CommercialVehicleController {
     }
 
     // ------------------- Dashboard by User -------------------
-    @PostMapping("/dashboard")
-    public ResponseEntity<?> dashboard(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "12") int size,
-            @RequestParam(defaultValue = "priceKes,desc") String sort,
-            @RequestBody Map<String, String> userPayload
-    ) {
-        try {
-            String email = userPayload.get("email");
-            String role = userPayload.get("role");
-            if (email == null || role == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body("Missing email or role");
-            }
-            return ResponseEntity.ok(service.dashboardByUser(email, role, page, size));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error: " + e.getMessage());
-        }
-    }
 
     // ------------------- Latest Arrivals -------------------
     @GetMapping("/latest")

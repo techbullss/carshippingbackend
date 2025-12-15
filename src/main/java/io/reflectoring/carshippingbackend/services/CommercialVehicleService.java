@@ -100,6 +100,8 @@ public class CommercialVehicleService {
         vehicle.setCustomSpecs(dto.getCustomSpecs());
         // ADD THIS LINE:
         vehicle.setSeller(dto.getSeller());
+        vehicle.setStatus(dto.getStatus());
+        vehicle.setOwnerEmail(dto.getSeller());
     }
     // ------------------- Create -------------------
     public CommercialVehicleResponseDTO createVehicle(CommercialVehicleDTO dto, String userEmail, String userRole) throws IOException {

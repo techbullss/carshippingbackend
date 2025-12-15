@@ -86,7 +86,7 @@ public class SecurityConfig {
                         // Public GETs but protected modifications
                         .requestMatchers(HttpMethod.GET, "/api/cars/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/motorcycles/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/commercial/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/vehicles/**").permitAll()
 
                         // Protected write operations for authenticated users
                         .requestMatchers(HttpMethod.POST, "/api/cars/**").authenticated()
@@ -97,8 +97,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/motorcycles/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/motorcycles/**").authenticated()
 
-                        .requestMatchers(HttpMethod.POST, "/api/commercial/**").authenticated()
-                        .requestMatchers(HttpMethod.PUT, "/api/commercial/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/vehicles/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/vehicles/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/commercial/**").authenticated()
 
                         // Admin endpoints (extra restricted)

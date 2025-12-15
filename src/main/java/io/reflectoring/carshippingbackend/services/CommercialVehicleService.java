@@ -98,8 +98,9 @@ public class CommercialVehicleService {
         vehicle.setOwnerType(dto.getOwnerType());
         vehicle.setFeatures(dto.getFeatures());
         vehicle.setCustomSpecs(dto.getCustomSpecs());
+        // ADD THIS LINE:
+        vehicle.setSeller(dto.getSeller());
     }
-
     // ------------------- Create -------------------
     public CommercialVehicleResponseDTO createVehicle(CommercialVehicleDTO dto, String userEmail, String userRole) throws IOException {
         CommercialVehicle vehicle = new CommercialVehicle();

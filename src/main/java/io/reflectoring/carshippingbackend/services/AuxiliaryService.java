@@ -15,6 +15,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -329,5 +332,45 @@ public class AuxiliaryService {
         }
 
         return itemRequestRepository.save(existingOrder);
+    }
+    /**
+     * Simplified version - extracts public ID assuming standard Cloudinary URL format
+     */
+    private String extractPublicId(String url) {
+        try {
+            // Example URL: https://res.cloudinary.com/demo/image/upload/v1234567890/auxiliary-items/abc123.jpg
+
+            // Find the version part (starts with /v followed by numbers)
+            Pattern pattern = Pattern.compile("/v\\d+/");
+            Matcher matcher = pattern.matcher(url);
+
+            if (matcher.find()) {
+                int start = matcher.end(); // Position after /v1234567890/
+                String afterVersion = url.substring(start);
+
+                // Remove file extension
+                int dotIndex = afterVersion.lastIndexOf('.');
+                if (dotIndex != -1) {
+                    return afterVersion.substring(0, dotIndex);
+                }
+                return afterVersion;
+            }
+
+            // Alternative: Look for the folder name
+            int folderIndex = url.indexOf("auxiliary-items/");
+            if (folderIndex != -1) {
+                String afterFolder = url.substring(folderIndex);
+                int dotIndex = afterFolder.lastIndexOf('.');
+                if (dotIndex != -1) {
+                    return afterFolder.substring(0, dotIndex);
+                }
+                return afterFolder;
+            }
+
+            return null;
+        } catch (Exception e) {
+            System.err.println("Failed to extract public ID from: " + url);
+            return null;
+        }
     }
 }

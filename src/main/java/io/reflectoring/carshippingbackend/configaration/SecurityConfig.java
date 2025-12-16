@@ -82,6 +82,9 @@ public class SecurityConfig {
 
                         // Public routes (like login/register)
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(" /api/auxiliary/**").permitAll()
+
+
 
                         // Public GETs but protected modifications
                         .requestMatchers(HttpMethod.GET, "/api/cars/**").permitAll()
@@ -104,6 +107,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/vehicle/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/images/**").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/api/images/**").authenticated()
+
 
 
 

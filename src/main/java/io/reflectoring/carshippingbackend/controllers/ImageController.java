@@ -59,9 +59,9 @@ public class ImageController {
     }
 
     // Upload image
-    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping( consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<UploadResponse>> uploadImage(
-            @RequestParam("image") @Valid @NotEmpty MultipartFile file) {
+            @RequestPart("image") @Valid @NotEmpty MultipartFile file) {
         try {
             UploadResponse response = imageService.uploadImage(file);
             return ResponseEntity.ok(ApiResponse.success("Image uploaded successfully", response));

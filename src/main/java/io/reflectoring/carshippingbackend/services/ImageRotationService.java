@@ -18,7 +18,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
-@Slf4j
+
 @RequiredArgsConstructor
 public class ImageRotationService {
     private final ImageRepository imageRepository;
@@ -113,7 +113,6 @@ public class ImageRotationService {
         if (hoursSinceRotation >= intervalHours) {
             rotateToNextImage();
             setConfigValue(RotationConfig.LAST_ROTATION_TIME, now.toString());
-            log.info("Image rotated automatically after {} hours", hoursSinceRotation);
         }
     }
 
@@ -138,7 +137,6 @@ public class ImageRotationService {
         // Update active status
         updateActiveStatus(allImages.get(currentIndex).getId());
 
-        log.info("Rotated to image index: {}", currentIndex);
     }
 
     @Transactional

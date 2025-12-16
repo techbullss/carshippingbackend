@@ -16,7 +16,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-@Slf4j
+
 @RequiredArgsConstructor
 public class ImageService {
     private final ImageRepository imageRepository;
@@ -50,7 +50,6 @@ public class ImageService {
 
         imageRepository.save(image);
 
-        log.info("Image saved to database: {}", image.getId());
 
         return new UploadResponse(true, "Image uploaded successfully",
                 rotationService.convertToDTO(image));
@@ -74,7 +73,6 @@ public class ImageService {
             rotationService.rotateToNextImage();
         }
 
-        log.info("Image deleted: {}", id);
     }
 
     private String generateFileName(MultipartFile file) {

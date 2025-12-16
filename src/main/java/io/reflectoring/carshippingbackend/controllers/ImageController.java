@@ -25,8 +25,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/images")
 @RequiredArgsConstructor
-@Slf4j
-@Validated
+
 @CrossOrigin(origins = "https://f-carshipping.com") // Adjust for production
 public class ImageController {
     private final ImageService imageService;
@@ -39,7 +38,7 @@ public class ImageController {
             List<ImageDTO> images = imageService.getAllImages();
             return ResponseEntity.ok(ApiResponse.success(images));
         } catch (Exception e) {
-            log.error("Error fetching images: {}", e.getMessage());
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to fetch images"));
         }
@@ -52,7 +51,7 @@ public class ImageController {
             RotationResponse response = rotationService.getCurrentImage();
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (Exception e) {
-            log.error("Error getting current image: {}", e.getMessage());
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to get current image"));
         }
@@ -69,7 +68,7 @@ public class ImageController {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error(e.getMessage()));
         } catch (IOException e) {
-            log.error("Error uploading image: {}", e.getMessage());
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to upload image"));
         }
@@ -85,7 +84,6 @@ public class ImageController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ApiResponse.error(e.getMessage()));
         } catch (IOException e) {
-            log.error("Error deleting image: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to delete image"));
         }
@@ -99,7 +97,7 @@ public class ImageController {
             RotationResponse response = rotationService.getCurrentImage();
             return ResponseEntity.ok(ApiResponse.success("Image rotated successfully", response));
         } catch (Exception e) {
-            log.error("Error rotating image: {}", e.getMessage());
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to rotate image"));
         }
@@ -119,7 +117,7 @@ public class ImageController {
 
             return ResponseEntity.ok(ApiResponse.success(stats));
         } catch (Exception e) {
-            log.error("Error getting stats: {}", e.getMessage());
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to get stats"));
         }

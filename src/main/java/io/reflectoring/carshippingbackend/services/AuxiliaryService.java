@@ -109,24 +109,27 @@ public class AuxiliaryService {
         return itemRequestRepository.save(request);
     }
 
-    // Submit review
+    // Submit review - NO APPROVAL NEEDED
     public Review submitReview(Review review) {
         review.setCreatedAt(LocalDateTime.now());
-        review.setApproved(false); // Needs admin approval
+        // No approval needed - reviews appear immediately
         return reviewRepository.save(review);
     }
 
-    // Get approved reviews
-    public Page<Review> getApprovedReviews(Pageable pageable) {
-        return reviewRepository.findByApprovedTrueOrderByCreatedAtDesc(pageable);
+    // Get ALL reviews for public display (no approval filter)
+    public Page<Review> getAllReviews(Pageable pageable) {
+        return reviewRepository.findAllByOrderByCreatedAtDesc(pageable);
     }
 
-    // Get reviews for moderation (by approval status)
+    // Get reviews for admin view (with optional approval filter)
     public Page<Review> getReviewsForModeration(Boolean approved, Pageable pageable) {
-        return reviewRepository.findByApproved(approved, pageable);
+        if (approved != null) {
+            return reviewRepository.findByApproved(approved, pageable);
+        }
+        return reviewRepository.findAll(pageable);
     }
 
-    // Admin: approve/reject review
+    // Admin: approve/reject review (optional - keep if you want moderation capability)
     public Review moderateReview(Long id, Boolean approve) {
         Review review = reviewRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Review not found"));
@@ -143,6 +146,7 @@ public class AuxiliaryService {
         stats.put("totalRequests", itemRequestRepository.count());
         stats.put("pendingRequests", itemRequestRepository.findByStatus("PENDING", Pageable.unpaged()).getTotalElements());
         stats.put("activeShipments", itemRequestRepository.findByStatus("IN_TRANSIT", Pageable.unpaged()).getTotalElements());
+        stats.put("deliveredRequests", itemRequestRepository.findByStatus("DELIVERED", Pageable.unpaged()).getTotalElements());
 
         // Average rating
         Double avgRating = reviewRepository.getAverageRating();
@@ -150,5 +154,71 @@ public class AuxiliaryService {
         stats.put("totalReviews", reviewRepository.count());
 
         return stats;
+    }
+
+    // NEW METHOD: Get review statistics with rating breakdown
+    public Map<String, Object> getReviewStats() {
+        Map<String, Object> stats = new HashMap<>();
+
+        // Average rating (all reviews)
+        Double avgRating = reviewRepository.getAverageRating();
+        stats.put("averageRating", avgRating != null ? Math.round(avgRating * 10.0) / 10.0 : 0);
+
+        // Total reviews
+        stats.put("totalReviews", reviewRepository.count());
+
+        // Get rating distribution
+        List<Object[]> distribution = reviewRepository.getRatingDistribution();
+        Map<Integer, Map<String, Object>> breakdown = new HashMap<>();
+
+        // Initialize all ratings 1-5
+        for (int i = 1; i <= 5; i++) {
+            breakdown.put(i, new HashMap<>() {{
+                put("count", 0);
+                put("percentage", 0.0);
+            }});
+        }
+
+        // Fill with actual data
+        for (Object[] row : distribution) {
+            Integer rating = (Integer) row[0];
+            Long count = (Long) row[1];
+            if (rating >= 1 && rating <= 5) {
+                breakdown.get(rating).put("count", count.intValue());
+            }
+        }
+
+        // Calculate percentages
+        long total = reviewRepository.count();
+        if (total > 0) {
+            for (int i = 1; i <= 5; i++) {
+                int count = (int) breakdown.get(i).get("count");
+                double percentage = (count * 100.0) / total;
+                breakdown.get(i).put("percentage", Math.round(percentage * 10.0) / 10.0);
+            }
+        }
+
+        stats.put("ratingBreakdown", breakdown);
+
+        return stats;
+    }
+
+    // NEW METHOD: Get all reviews (for admin)
+    public Page<Review> getAllReviewsForAdmin(Pageable pageable) {
+        return reviewRepository.findAll(pageable);
+    }
+
+    // NEW METHOD: Search reviews
+    public Page<Review> searchReviews(String search, Pageable pageable) {
+        return reviewRepository.searchReviews(search, pageable);
+    }
+
+    // NEW METHOD: Mark review as helpful
+    public Review markAsHelpful(Long id) {
+        Review review = reviewRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Review not found"));
+
+        review.setHelpfulCount(review.getHelpfulCount() + 1);
+        return reviewRepository.save(review);
     }
 }

@@ -31,5 +31,5 @@ public class Review {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    private Boolean approved = false; // For admin moderation
+    private Boolean approved = true; // For admin moderation
 }

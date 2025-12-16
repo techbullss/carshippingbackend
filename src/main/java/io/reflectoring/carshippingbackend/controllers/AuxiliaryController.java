@@ -1,6 +1,5 @@
 package io.reflectoring.carshippingbackend.controllers;
 
-import io.reflectoring.carshippingbackend.repository.ReviewRepository;
 import io.reflectoring.carshippingbackend.services.AuxiliaryService;
 import io.reflectoring.carshippingbackend.tables.ItemRequest;
 import io.reflectoring.carshippingbackend.tables.Review;
@@ -24,7 +23,6 @@ import java.util.Map;
 public class AuxiliaryController {
 
     private final AuxiliaryService auxiliaryService;
-    private final ReviewRepository reviewRepository; // Add this field
 
     // Client submits item request
     @PostMapping("/request-item")
@@ -78,25 +76,39 @@ public class AuxiliaryController {
         return ResponseEntity.ok(updated);
     }
 
-    // Submit review
+    // Submit review (NO APPROVAL NEEDED - posts immediately)
     @PostMapping("/reviews")
     public ResponseEntity<Review> submitReview(@RequestBody Review review) {
         Review saved = auxiliaryService.submitReview(review);
         return ResponseEntity.ok(saved);
     }
 
-    // Get public reviews (approved only)
+    // Get public reviews (ALL reviews - no approval filter)
     @GetMapping("/reviews/public")
     public ResponseEntity<Page<Review>> getPublicReviews(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        Pageable pageable = PageRequest.of(page, size);
-        Page<Review> reviews = auxiliaryService.getApprovedReviews(pageable);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Review> reviews = auxiliaryService.getAllReviews(pageable);
         return ResponseEntity.ok(reviews);
     }
 
-    // Admin: Get all reviews for moderation
+    // Get review statistics (for rating breakdown)
+    @GetMapping("/reviews/stats")
+    public ResponseEntity<Map<String, Object>> getReviewStats() {
+        Map<String, Object> stats = auxiliaryService.getReviewStats();
+        return ResponseEntity.ok(stats);
+    }
+
+    // Mark review as helpful
+    @PostMapping("/reviews/{id}/helpful")
+    public ResponseEntity<Review> markReviewAsHelpful(@PathVariable Long id) {
+        Review updated = auxiliaryService.markAsHelpful(id);
+        return ResponseEntity.ok(updated);
+    }
+
+    // Admin: Get all reviews for moderation (optional - with approval filter)
     @GetMapping("/reviews")
     public ResponseEntity<Page<Review>> getAllReviews(
             @RequestParam(required = false) Boolean approved,
@@ -104,18 +116,23 @@ public class AuxiliaryController {
             @RequestParam(defaultValue = "10") int size) {
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<Review> reviews;
-
-        if (approved != null) {
-            reviews = auxiliaryService.getReviewsForModeration(approved, pageable);
-        } else {
-            reviews = reviewRepository.findAll(pageable); // Now accessible
-        }
-
+        Page<Review> reviews = auxiliaryService.getReviewsForModeration(approved, pageable);
         return ResponseEntity.ok(reviews);
     }
 
-    // Admin: Moderate review
+    // Admin: Search reviews
+    @GetMapping("/reviews/search")
+    public ResponseEntity<Page<Review>> searchReviews(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Review> reviews = auxiliaryService.searchReviews(query, pageable);
+        return ResponseEntity.ok(reviews);
+    }
+
+    // Admin: Moderate review (optional - keep if you want override capability)
     @PatchMapping("/reviews/{id}/moderate")
     public ResponseEntity<Review> moderateReview(
             @PathVariable Long id,

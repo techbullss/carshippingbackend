@@ -59,17 +59,13 @@ public class ImageService {
         log.info("Image saved to database: {}", image.getId());
 
         // Convert to DTO using rotation service
-        ImageDTO imageDto = rotationService.convertToDTO(image);
+        //ImageDTO imageDto = rotationService.convertToDTO(image);
 
         // Create response
-        UploadResponse response = new UploadResponse(
-                true,
-                "Image uploaded successfully",
-                imageDto
-        );
+
 
         log.info("Upload completed successfully");
-        return response;
+        return null;
     }
 
     @Transactional

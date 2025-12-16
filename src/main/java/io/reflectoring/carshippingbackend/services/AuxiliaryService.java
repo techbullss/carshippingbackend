@@ -373,4 +373,7 @@ public class AuxiliaryService {
             return null;
         }
     }
+    public void deleteReview(Long id){
+        reviewRepository.deleteById(id);
+    }
 }

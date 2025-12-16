@@ -193,4 +193,10 @@ public class AuxiliaryController {
         ItemRequest updated = auxiliaryService.updateOrder(id, updatedRequest, images, clientEmail);
         return ResponseEntity.ok(updated);
     }
+    @DeleteMapping("/reviews/{id}")
+    public ResponseEntity<Void> deleteReview(@PathVariable Long id) {
+        auxiliaryService.deleteReview(id);
+        return ResponseEntity.ok().build();
+    }
+
 }

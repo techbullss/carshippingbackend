@@ -25,7 +25,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/images")
 @RequiredArgsConstructor
-
+@Slf4j
+@Validated
 @CrossOrigin(origins = "https://f-carshipping.com") // Adjust for production
 public class ImageController {
     private final ImageService imageService;
@@ -38,7 +39,7 @@ public class ImageController {
             List<ImageDTO> images = imageService.getAllImages();
             return ResponseEntity.ok(ApiResponse.success(images));
         } catch (Exception e) {
-
+            log.error("Error fetching images: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to fetch images"));
         }
@@ -51,35 +52,26 @@ public class ImageController {
             RotationResponse response = rotationService.getCurrentImage();
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (Exception e) {
-
+            log.error("Error getting current image: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to get current image"));
         }
     }
 
     // Upload image
-
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> uploadImage(@RequestParam("image") MultipartFile file) {
+    @PostMapping( consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<UploadResponse>> uploadImage(
+            @RequestPart("image") MultipartFile file) {
         try {
-
-            if (file.isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error", "File is empty"));
-            }
-
-            if (file.getSize() > 10 * 1024 * 1024) { // 10MB limit
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error", "File too large"));
-            }
-
-            // Process upload
-           // UploadResponse uploadResult = imageService.uploadImage(file);
-return ResponseEntity.ok("bbb");
-
-
-        } catch ( Exception e){
-            return ResponseEntity.ok("hhh");
+            UploadResponse response = imageService.uploadImage(file);
+            return ResponseEntity.ok(ApiResponse.success("Image uploaded successfully", response));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
+        } catch (IOException e) {
+            log.error("Error uploading image: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to upload image"));
         }
     }
 
@@ -93,6 +85,7 @@ return ResponseEntity.ok("bbb");
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ApiResponse.error(e.getMessage()));
         } catch (IOException e) {
+            log.error("Error deleting image: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to delete image"));
         }
@@ -106,7 +99,7 @@ return ResponseEntity.ok("bbb");
             RotationResponse response = rotationService.getCurrentImage();
             return ResponseEntity.ok(ApiResponse.success("Image rotated successfully", response));
         } catch (Exception e) {
-
+            log.error("Error rotating image: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to rotate image"));
         }
@@ -126,7 +119,7 @@ return ResponseEntity.ok("bbb");
 
             return ResponseEntity.ok(ApiResponse.success(stats));
         } catch (Exception e) {
-
+            log.error("Error getting stats: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Failed to get stats"));
         }

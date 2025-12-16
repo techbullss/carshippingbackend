@@ -11,13 +11,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
-
 @RequiredArgsConstructor
+@Slf4j
 public class ImageService {
     private final ImageRepository imageRepository;
     private final CloudinaryService cloudinaryService;
@@ -25,6 +25,8 @@ public class ImageService {
 
     @Transactional
     public UploadResponse uploadImage(MultipartFile file) throws IOException {
+        log.info("Starting image upload: {}", file.getOriginalFilename());
+
         // Validate file
         if (file.isEmpty()) {
             throw new IllegalArgumentException("File is empty");
@@ -47,12 +49,24 @@ public class ImageService {
         image.setCloudinaryPublicId(publicId);
         image.setFileType(file.getContentType());
         image.setFileSize(file.getSize());
+        image.setUploadedAt(LocalDateTime.now());  // IMPORTANT: Set upload timestamp
+        image.setActive(false);  // Default to inactive
 
         imageRepository.save(image);
+        log.info("Image saved to database: {}", image.getId());
 
+        // Convert to DTO using rotation service
+        ImageDTO imageDto = rotationService.convertToDTO(image);
 
-        return new UploadResponse(true, "Image uploaded successfully",
-                rotationService.convertToDTO(image));
+        // Create response
+        UploadResponse response = new UploadResponse(
+                true,
+                "Image uploaded successfully",
+                imageDto
+        );
+
+        log.info("Upload completed successfully");
+        return response;
     }
 
     @Transactional
@@ -72,7 +86,6 @@ public class ImageService {
         if (image.isActive()) {
             rotationService.rotateToNextImage();
         }
-
     }
 
     private String generateFileName(MultipartFile file) {

@@ -102,7 +102,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/vehicles/**").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/vehicles/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/vehicle/**").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/images/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/images/**").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/api/images/**").authenticated()
 
 

@@ -87,7 +87,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/cars/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/motorcycles/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/vehicles/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/images/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/images/**").permitAll()
 
 
                         // Protected write operations for authenticated users

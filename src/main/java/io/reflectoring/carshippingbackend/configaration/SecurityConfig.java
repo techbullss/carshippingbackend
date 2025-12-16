@@ -87,6 +87,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/cars/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/motorcycles/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/vehicles/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/images/**").authenticated()
+
 
                         // Protected write operations for authenticated users
                         .requestMatchers(HttpMethod.POST, "/api/cars/**").authenticated()
@@ -99,7 +101,12 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.POST, "/api/vehicles/**").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/vehicles/**").authenticated()
-                        .requestMatchers(HttpMethod.DELETE, "/api/commercial/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/vehicle/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/images/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/images/**").authenticated()
+
+
+
 
                         // Admin endpoints (extra restricted)
                         // Allow GET requests to users endpoint

@@ -1,7 +1,6 @@
 package io.reflectoring.carshippingbackend.services;
 
-import io.reflectoring.carshippingbackend.DTO.ImageDTO;
-import io.reflectoring.carshippingbackend.DTO.UploadResponse;
+;
 import io.reflectoring.carshippingbackend.repository.ImageRepository;
 import io.reflectoring.carshippingbackend.tables.Image;
 import lombok.RequiredArgsConstructor;
@@ -19,139 +18,102 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class ImageService {
+
     private final ImageRepository imageRepository;
-    private final CloudStorageService cloudStorageService;  // Changed from CloudinaryService
-    private final ImageRotationService rotationService;
 
     @Transactional
-    public UploadResponse uploadImage(MultipartFile file) throws IOException {
-        log.info("Starting image upload: {}", file.getOriginalFilename());
+    public Image uploadImage(MultipartFile file) throws IOException {
+        log.info("Uploading image: {}", file.getOriginalFilename());
 
-        // Validate file
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("File is empty");
-        }
-
-        if (!file.getContentType().startsWith("image/")) {
-            throw new IllegalArgumentException("File must be an image");
-        }
-
-        // Upload to Cloudinary using CloudStorageService
-        String imageUrl = cloudStorageService.uploadFile(file, "car-shipping/images");
-        log.info("Image uploaded to Cloudinary: {}", imageUrl);
-
-        // Extract public ID from URL
-        String publicId = extractPublicIdFromUrl(imageUrl);
-
-        // Save to database
+        // Create new image entity
         Image image = new Image();
         image.setId(UUID.randomUUID().toString());
         image.setFileName(generateFileName(file));
         image.setOriginalName(file.getOriginalFilename());
-        image.setUrl(imageUrl);
-        image.setCloudinaryPublicId(publicId);
         image.setFileType(file.getContentType());
         image.setFileSize(file.getSize());
         image.setUploadedAt(LocalDateTime.now());
-        image.setActive(false);
 
-        imageRepository.save(image);
-        log.info("Image saved to database: {}", image.getId());
+        // For now, store image locally (you can replace with Cloudinary later)
+        // In production, upload to Cloudinary/S3 and set the URL
+        image.setUrl("/images/" + image.getFileName());
 
-        // Convert to DTO using rotation service
-        //ImageDTO imageDto = rotationService.convertToDTO(image);
+        // Make first image active
+        if (imageRepository.count() == 0) {
+            image.setActive(true);
+        }
 
-        // Create response
-
-
-        log.info("Upload completed successfully");
-        return null;
+        return imageRepository.save(image);
     }
 
     @Transactional
-    public void deleteImage(String id) throws IOException {
+    public void deleteImage(String id) {
         Image image = imageRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Image not found"));
+                .orElseThrow(() -> new RuntimeException("Image not found"));
 
-        // Delete from Cloudinary using CloudStorageService
-        if (image.getCloudinaryPublicId() != null) {
-            // Extract folder and filename from publicId
-            String[] parts = image.getCloudinaryPublicId().split("/");
-            if (parts.length >= 2) {
-                String folderName = parts[0];
-                String fileName = parts[1];
-                cloudStorageService.deleteFile(folderName, fileName);
-            }
-        }
-
-        // Delete from database
-        imageRepository.delete(image);
-
-        // If this was the active image, rotate to next one
+        // If deleting active image, make another one active
         if (image.isActive()) {
-            rotationService.rotateToNextImage();
+            List<Image> images = imageRepository.findAllByOrderByUploadedAtDesc();
+            if (images.size() > 1) {
+                Image nextImage = images.get(1); // Skip the one being deleted
+                nextImage.setActive(true);
+                imageRepository.save(nextImage);
+            }
         }
+
+        imageRepository.delete(image);
     }
 
-    private String generateFileName(MultipartFile file) {
-        String originalFilename = file.getOriginalFilename();
-        String extension = "";
-        int dotIndex = originalFilename.lastIndexOf(".");
-        if (dotIndex > 0) {
-            extension = originalFilename.substring(dotIndex);
-        }
-        return UUID.randomUUID().toString() + extension;
-    }
-
-    /**
-     * Extract public ID from Cloudinary URL
-     * Example URL: https://res.cloudinary.com/demo/image/upload/v1234567890/car-shipping/images/filename.jpg
-     * Returns: car-shipping/images/filename
-     */
-    private String extractPublicIdFromUrl(String url) {
-        try {
-            // Find the part after "/upload/"
-            int uploadIndex = url.indexOf("/upload/");
-            if (uploadIndex == -1) {
-                return null;
-            }
-
-            // Get everything after "/upload/"
-            String path = url.substring(uploadIndex + 8);
-
-            // Remove version prefix if present (v1234567890/)
-            if (path.startsWith("v")) {
-                int slashIndex = path.indexOf("/");
-                if (slashIndex != -1) {
-                    path = path.substring(slashIndex + 1);
-                }
-            }
-
-            // Remove file extension
-            int lastDotIndex = path.lastIndexOf(".");
-            if (lastDotIndex != -1) {
-                path = path.substring(0, lastDotIndex);
-            }
-
-            return path;
-
-        } catch (Exception e) {
-            log.error("Failed to extract public ID from URL: {}", url, e);
+    @Transactional
+    public Image rotateImage() {
+        List<Image> images = imageRepository.findAllByOrderByUploadedAtDesc();
+        if (images.isEmpty()) {
             return null;
         }
+
+        // Find current active image index
+        int currentIndex = -1;
+        for (int i = 0; i < images.size(); i++) {
+            if (images.get(i).isActive()) {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        // If no active image or last image, make first active
+        if (currentIndex == -1 || currentIndex == images.size() - 1) {
+            images.forEach(img -> img.setActive(false));
+            Image firstImage = images.get(0);
+            firstImage.setActive(true);
+            imageRepository.saveAll(images);
+            return firstImage;
+        }
+
+        // Make next image active
+        images.forEach(img -> img.setActive(false));
+        Image nextImage = images.get(currentIndex + 1);
+        nextImage.setActive(true);
+        imageRepository.saveAll(images);
+
+        return nextImage;
     }
 
-    public List<ImageDTO> getAllImages() {
-        return rotationService.getAllImages();
+    public Image getCurrentImage() {
+        return imageRepository.findByActiveTrue()
+                .orElse(null);
     }
 
-    public ImageDTO getImageById(String id) {
-        return imageRepository.findById(id)
-                .map(rotationService::convertToDTO)
-                .orElseThrow(() -> new IllegalArgumentException("Image not found"));
+    public List<Image> getAllImages() {
+        return imageRepository.findAllByOrderByUploadedAtDesc();
     }
 
     public long getImageCount() {
         return imageRepository.count();
+    }
+
+    private String generateFileName(MultipartFile file) {
+        String originalFilename = file.getOriginalFilename();
+        String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        return UUID.randomUUID() + extension;
     }
 }

@@ -18,9 +18,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
-@Transactional  // ADD THIS AT CLASS LEVEL
+@RequiredArgsConstructor
 public class ImageRotationService {
     private final ImageRepository imageRepository;
     private final RotationConfigRepository configRepository;
@@ -48,6 +47,7 @@ public class ImageRotationService {
         configRepository.save(config);
     }
 
+    @Transactional
     public RotationResponse getCurrentImage() {
         // Check if rotation is needed
         checkAndPerformRotation();
@@ -96,6 +96,7 @@ public class ImageRotationService {
         );
     }
 
+    @Transactional
     public void checkAndPerformRotation() {
         String lastRotationStr = getConfigValue(RotationConfig.LAST_ROTATION_TIME,
                 LocalDateTime.now().toString());
@@ -112,9 +113,11 @@ public class ImageRotationService {
         if (hoursSinceRotation >= intervalHours) {
             rotateToNextImage();
             setConfigValue(RotationConfig.LAST_ROTATION_TIME, now.toString());
+            log.info("Image rotated automatically after {} hours", hoursSinceRotation);
         }
     }
 
+    @Transactional
     public void rotateToNextImage() {
         List<Image> allImages = imageRepository.findAllByOrderByUploadedAtDesc();
 
@@ -134,12 +137,16 @@ public class ImageRotationService {
 
         // Update active status
         updateActiveStatus(allImages.get(currentIndex).getId());
+
+        log.info("Rotated to image index: {}", currentIndex);
     }
 
+    @Transactional
     public void forceRotate() {
         rotateToNextImage();
     }
 
+    @Transactional
     public void updateActiveStatus(String activeImageId) {
         // Deactivate all images
         List<Image> allImages = imageRepository.findAll();

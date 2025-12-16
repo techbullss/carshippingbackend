@@ -2,8 +2,7 @@ package io.reflectoring.carshippingbackend.controllers;
 
 
 import io.reflectoring.carshippingbackend.DTO.MotorcycleRequestDTO;
-import io.reflectoring.carshippingbackend.DTO.MotorcycleResponseDTO;
-import io.reflectoring.carshippingbackend.services.MotorcycleService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.MediaType;
@@ -20,31 +19,31 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MotorcycleController {
 
-    private final MotorcycleService service;
+   // private final MotorcycleService service;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<MotorcycleResponseDTO> create(
+    public ResponseEntity<?> create(
             @RequestPart("motorcycle") MotorcycleRequestDTO dto,
             @RequestPart(value = "images", required = false) List<MultipartFile> images
     ) throws IOException {
         dto.setImages(images);
-        return ResponseEntity.ok(service.create(dto));
+        return ResponseEntity.ok("vvvv");
     }
 
     @GetMapping
-    public ResponseEntity<Page<MotorcycleResponseDTO>> list(
+    public ResponseEntity<?> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "9") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String status
     ) {
-        Page<MotorcycleResponseDTO> p = service.search(page, size, search, type, status);
-        return ResponseEntity.ok(p);
+      //  Page<MotorcycleResponseDTO> p = service.search(page, size, search, type, status);
+        return ResponseEntity.ok("ccc");
     }
 
     @GetMapping("/filter")
-    public ResponseEntity<Page<MotorcycleResponseDTO>> list(
+    public ResponseEntity<?> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "9") int size,
             @RequestParam(required = false) String make,
@@ -52,27 +51,27 @@ public class MotorcycleController {
             @RequestParam(required = false) String priceRange,
             @RequestParam(required = false) String year
     ) {
-        Page<MotorcycleResponseDTO> p = service.filterMotorcycles(page, size, make, type, priceRange, year);
-        return ResponseEntity.ok(p);
+        //Page<MotorcycleResponseDTO> p = service.filterMotorcycles(page, size, make, type, priceRange, year);
+        return ResponseEntity.ok("v");
     }
     @GetMapping("/{id}")
-    public ResponseEntity<MotorcycleResponseDTO> getOne(@PathVariable Long id) {
-        return ResponseEntity.ok(service.getOne(id));
+    public ResponseEntity<?> getOne(@PathVariable Long id) {
+        return ResponseEntity.ok("service.getOne(id)");
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<MotorcycleResponseDTO> update(
+    public ResponseEntity<?> update(
             @PathVariable Long id,
             @RequestPart("motorcycle") MotorcycleRequestDTO dto,
             @RequestPart(value = "images", required = false) List<MultipartFile> images
     ) throws IOException {
         dto.setImages(images);
-        return ResponseEntity.ok(service.update(id, dto));
+        return ResponseEntity.ok("service.update(id, dto)");
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        service.delete(id);
+    public ResponseEntity<?> delete(@PathVariable Long id) {
+       // service.delete(id);
         return ResponseEntity.noContent().build();
     }
 }

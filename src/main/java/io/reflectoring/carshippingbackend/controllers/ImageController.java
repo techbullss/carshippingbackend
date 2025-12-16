@@ -58,19 +58,34 @@ public class ImageController {
     }
 
     // Upload image
-    @PostMapping( consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<UploadResponse>> uploadImage(
-            @RequestPart("image") MultipartFile file) {
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadImage(@RequestParam("image") MultipartFile file) {
         try {
-            UploadResponse response = imageService.uploadImage(file);
-            return ResponseEntity.ok(ApiResponse.success("Image uploaded successfully", response));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error(e.getMessage()));
+
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "File is empty"));
+            }
+
+            if (file.getSize() > 10 * 1024 * 1024) { // 10MB limit
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "File too large"));
+            }
+
+            // Process upload
+            UploadResponse uploadResult = imageService.uploadImage(file);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Image uploaded successfully",
+                    "data", uploadResult
+            ));
+
         } catch (IOException e) {
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("Failed to upload image"));
+                    .body(Map.of("error", "Failed to upload image"));
         }
     }
 

@@ -221,4 +221,113 @@ public class AuxiliaryService {
         review.setHelpfulCount(review.getHelpfulCount() + 1);
         return reviewRepository.save(review);
     }
+    // Get single order by ID
+    public ItemRequest getOrderById(Long id, String clientEmail) {
+        ItemRequest order = itemRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        // Check if order belongs to client (for client access)
+        if (clientEmail != null && !order.getClientEmail().equals(clientEmail)) {
+            throw new RuntimeException("You are not authorized to access this order");
+        }
+
+        return order;
+    }
+
+    // Update order (for client edits)
+    public ItemRequest updateOrder(Long id, ItemRequest updatedRequest, MultipartFile[] images, String clientEmail) throws IOException {
+        ItemRequest existingOrder = getOrderById(id, clientEmail);
+
+        // Check if order can be edited
+        if (!Arrays.asList("PENDING", "SOURCING").contains(existingOrder.getStatus())) {
+            throw new RuntimeException("Order cannot be edited as it has already progressed beyond the editing stage");
+        }
+
+        // Update fields
+        existingOrder.setItemName(updatedRequest.getItemName());
+        existingOrder.setCategory(updatedRequest.getCategory());
+        existingOrder.setDescription(updatedRequest.getDescription());
+        existingOrder.setOriginCountry(updatedRequest.getOriginCountry());
+        existingOrder.setDestination(updatedRequest.getDestination());
+        existingOrder.setBudget(updatedRequest.getBudget());
+        existingOrder.setQuantity(updatedRequest.getQuantity());
+        existingOrder.setUrgency(updatedRequest.getUrgency());
+        existingOrder.setNotes(updatedRequest.getNotes());
+        existingOrder.setUpdatedAt(LocalDateTime.now());
+
+        // Handle images (keep existing + add new)
+        List<String> updatedUrls = new ArrayList<>();
+
+        // Keep existing images that are still in the list
+        if (updatedRequest.getImageUrls() != null) {
+            updatedUrls.addAll(updatedRequest.getImageUrls());
+        }
+
+        // Delete removed images from Cloudinary
+        if (existingOrder.getImageUrls() != null) {
+            List<String> removedUrls = existingOrder.getImageUrls().stream()
+                    .filter(url -> updatedRequest.getImageUrls() == null || !updatedRequest.getImageUrls().contains(url))
+                    .collect(Collectors.toList());
+
+            for (String url : removedUrls) {
+                try {
+                    String publicId = extractPublicId(url);
+                    if (publicId != null) {
+                        cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "image"));
+                    }
+                } catch (Exception ex) {
+                    System.err.println("⚠️ Failed to delete Cloudinary image: " + ex.getMessage());
+                }
+            }
+        }
+
+        // Upload new images
+        if (images != null && images.length > 0) {
+            for (MultipartFile file : images) {
+                if (!file.isEmpty()) {
+                    Map uploadResult = cloudinary.uploader().upload(
+                            file.getBytes(),
+                            ObjectUtils.asMap(
+                                    "folder", "auxiliary-items",
+                                    "resource_type", "auto"
+                            )
+                    );
+                    updatedUrls.add((String) uploadResult.get("secure_url"));
+                }
+            }
+        }
+
+        existingOrder.setImageUrls(updatedUrls);
+
+        // Send email notification to admin
+        if (emailService != null) {
+            String subject = "Order Updated by Client";
+            String content = String.format("""
+                Dear Admin,
+                
+                Client %s has updated their order.
+                
+                Order Details:
+                - Request ID: %s
+                - Item: %s
+                - Status: %s
+                - Updated at: %s
+                
+                Please review the changes in the admin panel.
+                
+                Regards,
+                Shipping System
+                """,
+                    existingOrder.getClientName(),
+                    existingOrder.getRequestId(),
+                    existingOrder.getItemName(),
+                    existingOrder.getStatus(),
+                    existingOrder.getUpdatedAt());
+
+            // Send to admin email (configure this)
+            emailService.sendSimpleMessage("admin@yourdomain.com", subject, content);
+        }
+
+        return itemRequestRepository.save(existingOrder);
+    }
 }

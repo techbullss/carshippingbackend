@@ -1,5 +1,6 @@
 package io.reflectoring.carshippingbackend.controllers;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.reflectoring.carshippingbackend.services.AuxiliaryService;
 import io.reflectoring.carshippingbackend.tables.ItemRequest;
 import io.reflectoring.carshippingbackend.tables.Review;
@@ -164,5 +165,32 @@ public class AuxiliaryController {
                 "Other"
         };
         return ResponseEntity.ok(categories);
+    }
+    // Get single order (for editing)
+    @GetMapping("/requests/{id}")
+    public ResponseEntity<ItemRequest> getOrderById(
+            @PathVariable("id") Long id
+            ) {
+
+        String clientEmail = "bwanamaina2010@gmail.com";
+        ItemRequest order = auxiliaryService.getOrderById(id, clientEmail);
+        return ResponseEntity.ok(order);
+    }
+
+    // Update order (client edit)
+    @PutMapping("/requests/{id}")
+    public ResponseEntity<ItemRequest> updateOrder(
+            @PathVariable Long id,
+            @RequestPart("request") String requestJson,
+            @RequestPart(value = "images", required = false) MultipartFile[] images,
+            Authentication authentication) throws IOException {
+
+        // Parse JSON request
+        ObjectMapper objectMapper = new ObjectMapper();
+        ItemRequest updatedRequest = objectMapper.readValue(requestJson, ItemRequest.class);
+
+        String clientEmail = authentication.getName();
+        ItemRequest updated = auxiliaryService.updateOrder(id, updatedRequest, images, clientEmail);
+        return ResponseEntity.ok(updated);
     }
 }

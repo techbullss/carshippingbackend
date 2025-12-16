@@ -74,18 +74,12 @@ public class ImageController {
             }
 
             // Process upload
-            UploadResponse uploadResult = imageService.uploadImage(file);
+           // UploadResponse uploadResult = imageService.uploadImage(file);
+return ResponseEntity.ok("bbb");
 
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "message", "Image uploaded successfully",
-                    "data", uploadResult
-            ));
 
-        } catch (IOException e) {
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to upload image"));
+        } catch ( Exception e){
+            return ResponseEntity.ok("hhh");
         }
     }
 

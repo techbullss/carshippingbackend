@@ -74,7 +74,7 @@ public class ImageRotationService {
         Image currentImage = allImages.get(currentIndex);
 
         // Update active status
-        updateActiveStatus(currentImage.getId());
+        updateActiveStatus(String.valueOf(currentImage.getId()));
 
         // Calculate next rotation time
         String lastRotationStr = getConfigValue(RotationConfig.LAST_ROTATION_TIME,
@@ -136,7 +136,7 @@ public class ImageRotationService {
         setConfigValue(RotationConfig.LAST_ROTATION_TIME, LocalDateTime.now().toString());
 
         // Update active status
-        updateActiveStatus(allImages.get(currentIndex).getId());
+        updateActiveStatus(String.valueOf(allImages.get(currentIndex).getId()));
 
         log.info("Rotated to image index: {}", currentIndex);
     }
@@ -154,7 +154,7 @@ public class ImageRotationService {
         imageRepository.saveAll(allImages);
 
         // Activate current image
-        imageRepository.findById(activeImageId).ifPresent(img -> {
+        imageRepository.findById(Long.valueOf(activeImageId)).ifPresent(img -> {
             img.setActive(true);
             imageRepository.save(img);
         });
@@ -165,7 +165,7 @@ public class ImageRotationService {
         if (image == null) return null;
 
         ImageDTO dto = new ImageDTO();
-        dto.setId(image.getId());
+        dto.setId(String.valueOf(image.getId()));
         dto.setFileName(image.getFileName());
         dto.setOriginalName(image.getOriginalName());
         dto.setUrl(image.getUrl());

@@ -94,7 +94,7 @@ public class ImageController {
 
     // Delete image
     @DeleteMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> deleteImage(@PathVariable String id) {
+    public ResponseEntity<Map<String, Object>> deleteImage(@PathVariable long id) {
         try {
             imageService.deleteImage(id);
             return ResponseEntity.ok(Map.of("success", true, "message", "Image deleted successfully"));

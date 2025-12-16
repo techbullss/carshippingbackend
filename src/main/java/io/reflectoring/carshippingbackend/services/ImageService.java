@@ -45,7 +45,6 @@ public class ImageService {
 
         // Create image entity
         Image image = new Image();
-        image.setId(UUID.randomUUID().toString());
         image.setFileName(publicId);
         image.setOriginalName(file.getOriginalFilename());
         image.setFileType(file.getContentType());
@@ -62,7 +61,7 @@ public class ImageService {
     }
 
     @Transactional
-    public void deleteImage(String id) {
+    public void deleteImage(long id) {
         Image image = imageRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Image not found"));
 

@@ -20,7 +20,7 @@ import java.util.UUID;
 @Slf4j
 public class ImageService {
     private final ImageRepository imageRepository;
-    private final CloudinaryService cloudinaryService;
+    private final CloudStorageService cloudStorageService;  // Changed from CloudinaryService
     private final ImageRotationService rotationService;
 
     @Transactional
@@ -36,9 +36,12 @@ public class ImageService {
             throw new IllegalArgumentException("File must be an image");
         }
 
-        // Upload to Cloudinary
-        String imageUrl = cloudinaryService.uploadImage(file);
-        String publicId = cloudinaryService.extractPublicIdFromUrl(imageUrl);
+        // Upload to Cloudinary using CloudStorageService
+        String imageUrl = cloudStorageService.uploadFile(file, "car-shipping/images");
+        log.info("Image uploaded to Cloudinary: {}", imageUrl);
+
+        // Extract public ID from URL
+        String publicId = extractPublicIdFromUrl(imageUrl);
 
         // Save to database
         Image image = new Image();
@@ -49,8 +52,8 @@ public class ImageService {
         image.setCloudinaryPublicId(publicId);
         image.setFileType(file.getContentType());
         image.setFileSize(file.getSize());
-        image.setUploadedAt(LocalDateTime.now());  // IMPORTANT: Set upload timestamp
-        image.setActive(false);  // Default to inactive
+        image.setUploadedAt(LocalDateTime.now());
+        image.setActive(false);
 
         imageRepository.save(image);
         log.info("Image saved to database: {}", image.getId());
@@ -74,9 +77,15 @@ public class ImageService {
         Image image = imageRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Image not found"));
 
-        // Delete from Cloudinary
+        // Delete from Cloudinary using CloudStorageService
         if (image.getCloudinaryPublicId() != null) {
-            cloudinaryService.deleteImage(image.getCloudinaryPublicId());
+            // Extract folder and filename from publicId
+            String[] parts = image.getCloudinaryPublicId().split("/");
+            if (parts.length >= 2) {
+                String folderName = parts[0];
+                String fileName = parts[1];
+                cloudStorageService.deleteFile(folderName, fileName);
+            }
         }
 
         // Delete from database
@@ -90,8 +99,50 @@ public class ImageService {
 
     private String generateFileName(MultipartFile file) {
         String originalFilename = file.getOriginalFilename();
-        return UUID.randomUUID().toString() +
-                originalFilename.substring(originalFilename.lastIndexOf("."));
+        String extension = "";
+        int dotIndex = originalFilename.lastIndexOf(".");
+        if (dotIndex > 0) {
+            extension = originalFilename.substring(dotIndex);
+        }
+        return UUID.randomUUID().toString() + extension;
+    }
+
+    /**
+     * Extract public ID from Cloudinary URL
+     * Example URL: https://res.cloudinary.com/demo/image/upload/v1234567890/car-shipping/images/filename.jpg
+     * Returns: car-shipping/images/filename
+     */
+    private String extractPublicIdFromUrl(String url) {
+        try {
+            // Find the part after "/upload/"
+            int uploadIndex = url.indexOf("/upload/");
+            if (uploadIndex == -1) {
+                return null;
+            }
+
+            // Get everything after "/upload/"
+            String path = url.substring(uploadIndex + 8);
+
+            // Remove version prefix if present (v1234567890/)
+            if (path.startsWith("v")) {
+                int slashIndex = path.indexOf("/");
+                if (slashIndex != -1) {
+                    path = path.substring(slashIndex + 1);
+                }
+            }
+
+            // Remove file extension
+            int lastDotIndex = path.lastIndexOf(".");
+            if (lastDotIndex != -1) {
+                path = path.substring(0, lastDotIndex);
+            }
+
+            return path;
+
+        } catch (Exception e) {
+            log.error("Failed to extract public ID from URL: {}", url, e);
+            return null;
+        }
     }
 
     public List<ImageDTO> getAllImages() {

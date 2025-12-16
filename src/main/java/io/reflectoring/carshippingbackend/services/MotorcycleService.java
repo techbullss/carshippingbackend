@@ -1,186 +1,203 @@
 package io.reflectoring.carshippingbackend.services;
-import com.cloudinary.Cloudinary;
-import com.cloudinary.utils.ObjectUtils;
 
-import io.reflectoring.carshippingbackend.DTO.MotorcycleRequestDTO;
-import io.reflectoring.carshippingbackend.DTO.MotorcycleResponseDTO;
-import io.reflectoring.carshippingbackend.repository.MotorcycleRepository;
-import io.reflectoring.carshippingbackend.tables.Motorcycle;
+import io.reflectoring.carshippingbackend.DTO.ImageDTO;
+import io.reflectoring.carshippingbackend.DTO.RotationResponse;
+import io.reflectoring.carshippingbackend.repository.ImageRepository;
+import io.reflectoring.carshippingbackend.repository.RotationConfigRepository;
+import io.reflectoring.carshippingbackend.tables.Image;
+import io.reflectoring.carshippingbackend.tables.RotationConfig;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.BeanUtils;
-import org.springframework.data.domain.*;
-import org.springframework.data.jpa.domain.Specification;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
-import java.util.*;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class MotorcycleService {
+@Slf4j
+@Transactional  // ADDED: Ensures all methods run in transaction
+public class ImageRotationService {
+    private final ImageRepository imageRepository;
+    private final RotationConfigRepository configRepository;
 
-    private final MotorcycleRepository repo;
-    private final Cloudinary cloudinary;
+    private static final int DEFAULT_ROTATION_INTERVAL_HOURS = 48;
 
-    // Upload helper
-    private List<String> uploadImages(List<MultipartFile> images) throws IOException {
-        if (images == null || images.isEmpty()) return Collections.emptyList();
-        List<String> urls = new ArrayList<>();
-        for (MultipartFile f : images) {
-            String uniqueFileName = UUID.randomUUID() + "-" + Objects.requireNonNull(f.getOriginalFilename()).replaceAll("\\s+", "_");
-            Map uploadResult = cloudinary.uploader().upload(f.getBytes(), ObjectUtils.asMap(
-                    "public_id", "motorcycles/" + uniqueFileName,
-                    "resource_type", "auto"
-            ));
-            urls.add((String) uploadResult.get("secure_url"));
-        }
-        return urls;
+    // Configuration keys
+    public static class RotationConfigKeys {
+        public static final String CURRENT_IMAGE_INDEX = "CURRENT_IMAGE_INDEX";
+        public static final String LAST_ROTATION_TIME = "LAST_ROTATION_TIME";
+        public static final String ROTATION_INTERVAL_HOURS = "ROTATION_INTERVAL_HOURS";
     }
 
-    // Create
-    public MotorcycleResponseDTO create(MotorcycleRequestDTO dto) throws IOException {
-        Motorcycle m = Motorcycle.builder()
-                .brand(dto.getBrand())
-                .model(dto.getModel())
-                .type(dto.getType())
-                .engineCapacity(dto.getEngineCapacity())
-                .status(dto.getStatus())
-                .price(dto.getPrice())
-                .location(dto.getLocation())
-                .owner(dto.getOwner())
-                .description(dto.getDescription())
-                .features(dto.getFeatures())
-                .build();
-
-        if (dto.getImages() != null && !dto.getImages().isEmpty()) {
-            m.setImageUrls(uploadImages(dto.getImages()));
-        }
-
-        Motorcycle saved = repo.save(m);
-        return toDto(saved);
+    // Get or create configuration value
+    private String getConfigValue(String key, String defaultValue) {
+        return configRepository.findByConfigKey(key)
+                .map(RotationConfig::getConfigValue)
+                .orElseGet(() -> {
+                    RotationConfig config = new RotationConfig();
+                    config.setConfigKey(key);
+                    config.setConfigValue(defaultValue);
+                    configRepository.save(config);
+                    return defaultValue;
+                });
     }
 
-    // Read pageable with search + filters
-    public Page<MotorcycleResponseDTO> search(int page, int size, String search, String type, String status) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
-        Page<Motorcycle> result;
-
-        if (search != null && !search.isBlank()) {
-            result = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCase(search, search, pageable);
-        } else if (type != null && !type.isBlank()) {
-            result = repo.findByTypeIgnoreCase(type, pageable);
-        } else if (status != null && !status.isBlank()) {
-            result = repo.findByStatusIgnoreCase(status, pageable);
-        } else {
-            result = repo.findAll(pageable);
-        }
-
-        return result.map(this::toDto);
-    }
-    public Page<MotorcycleResponseDTO> filterMotorcycles(
-            int page,
-            int size,
-            String make,
-            String type,
-            String priceRange,
-            String year
-    ) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
-
-        Specification<Motorcycle> spec = Specification.where(null);
-
-        if (make != null && !make.isBlank()) {
-            spec = spec.and((root, query, cb) ->
-                    cb.equal(cb.lower(root.get("brand")), make.toLowerCase()));
-        }
-
-        if (type != null && !type.isBlank()) {
-            spec = spec.and((root, query, cb) ->
-                    cb.equal(cb.lower(root.get("type")), type.toLowerCase()));
-        }
-
-        if (priceRange != null && !priceRange.isBlank()) {
-            spec = spec.and((root, query, cb) -> {
-                switch (priceRange) {
-                    case "low":
-                        return cb.lessThan(root.get("price"), 600000);
-                    case "medium":
-                        return cb.between(root.get("price"), 600000, 1000000);
-                    case "high":
-                        return cb.greaterThan(root.get("price"), 1000000);
-                    default:
-                        return null;
-                }
-            });
-        }
-
-        if (year != null && !year.isBlank()) {
-            try {
-                int yr = Integer.parseInt(year);
-                spec = spec.and((root, query, cb) ->
-                        cb.equal(root.get("year"), yr));
-            } catch (NumberFormatException ignored) {}
-        }
-
-        Page<Motorcycle> result = repo.findAll(spec, pageable);
-        return result.map(this::toDto);
+    private void setConfigValue(String key, String value) {
+        RotationConfig config = configRepository.findByConfigKey(key)
+                .orElse(new RotationConfig());
+        config.setConfigKey(key);
+        config.setConfigValue(value);
+        configRepository.save(config);
     }
 
-    // Read one
-    public MotorcycleResponseDTO getOne(Long id) {
-        Motorcycle m = repo.findById(id).orElseThrow(() -> new RuntimeException("Motorcycle not found"));
-        return toDto(m);
-    }
+    public RotationResponse getCurrentImage() {
+        // Check if rotation is needed
+        checkAndPerformRotation();
 
-    // Update
-    public MotorcycleResponseDTO update(Long id, MotorcycleRequestDTO dto) throws IOException {
-        Motorcycle existing = repo.findById(id).orElseThrow(() -> new RuntimeException("Motorcycle not found"));
+        // Get current index
+        int currentIndex = Integer.parseInt(
+                getConfigValue(RotationConfigKeys.CURRENT_IMAGE_INDEX, "0")
+        );
 
-        // copy allowed props
-        existing.setBrand(dto.getBrand());
-        existing.setModel(dto.getModel());
-        existing.setType(dto.getType());
-        existing.setEngineCapacity(dto.getEngineCapacity());
-        existing.setStatus(dto.getStatus());
-        existing.setPrice(dto.getPrice());
-        existing.setLocation(dto.getLocation());
-        existing.setOwner(dto.getOwner());
-        existing.setDescription(dto.getDescription());
-        existing.setFeatures(dto.getFeatures());
+        // Get all images ordered by upload date
+        List<Image> allImages = imageRepository.findAllByOrderByUploadedAtDesc();
 
-        // upload new images if provided (replace existing)
-        if (dto.getImages() != null && !dto.getImages().isEmpty()) {
-            existing.setImageUrls(uploadImages(dto.getImages()));
+        if (allImages.isEmpty()) {
+            return new RotationResponse(null, null, 0, 0);
         }
 
-        Motorcycle saved = repo.save(existing);
-        return toDto(saved);
+        // Ensure index is within bounds
+        if (currentIndex >= allImages.size()) {
+            currentIndex = 0;
+            setConfigValue(RotationConfigKeys.CURRENT_IMAGE_INDEX, "0");
+        }
+
+        // Get current image
+        Image currentImage = allImages.get(currentIndex);
+
+        // Update active status
+        updateActiveStatus(currentImage.getId());
+
+        // Calculate next rotation time
+        String lastRotationStr = getConfigValue(RotationConfigKeys.LAST_ROTATION_TIME,
+                LocalDateTime.now().toString());
+        LocalDateTime lastRotation = LocalDateTime.parse(lastRotationStr);
+
+        int intervalHours = Integer.parseInt(
+                getConfigValue(RotationConfigKeys.ROTATION_INTERVAL_HOURS,
+                        String.valueOf(DEFAULT_ROTATION_INTERVAL_HOURS))
+        );
+
+        LocalDateTime nextRotation = lastRotation.plusHours(intervalHours);
+
+        return new RotationResponse(
+                convertToDTO(currentImage),
+                nextRotation,
+                allImages.size(),
+                currentIndex
+        );
     }
 
-    // Delete
-    public void delete(Long id) {
-        repo.deleteById(id);
+    public void checkAndPerformRotation() {
+        String lastRotationStr = getConfigValue(RotationConfigKeys.LAST_ROTATION_TIME,
+                LocalDateTime.now().toString());
+        LocalDateTime lastRotation = LocalDateTime.parse(lastRotationStr);
+
+        int intervalHours = Integer.parseInt(
+                getConfigValue(RotationConfigKeys.ROTATION_INTERVAL_HOURS,
+                        String.valueOf(DEFAULT_ROTATION_INTERVAL_HOURS))
+        );
+
+        LocalDateTime now = LocalDateTime.now();
+        long hoursSinceRotation = ChronoUnit.HOURS.between(lastRotation, now);
+
+        if (hoursSinceRotation >= intervalHours) {
+            rotateToNextImage();
+            setConfigValue(RotationConfigKeys.LAST_ROTATION_TIME, now.toString());
+        }
     }
 
-    private MotorcycleResponseDTO toDto(Motorcycle m) {
-        return MotorcycleResponseDTO.builder()
-                .id(m.getId())
-                .brand(m.getBrand())
-                .model(m.getModel())
-                .type(m.getType())
-                .engineCapacity(m.getEngineCapacity())
-                .status(m.getStatus())
-                .price(m.getPrice())
-                .location(m.getLocation())
-                .owner(m.getOwner())
-                .description(m.getDescription())
-                .features(m.getFeatures())
-                .imageUrls(m.getImageUrls())
-                .createdAt(m.getCreatedAt())
-                .updatedAt(m.getUpdatedAt())
-                .build();
+    public void rotateToNextImage() {
+        List<Image> allImages = imageRepository.findAllByOrderByUploadedAtDesc();
+
+        if (allImages.isEmpty()) {
+            return;
+        }
+
+        int currentIndex = Integer.parseInt(
+                getConfigValue(RotationConfigKeys.CURRENT_IMAGE_INDEX, "0")
+        );
+
+        // Move to next image, wrap around if at the end
+        currentIndex = (currentIndex + 1) % allImages.size();
+
+        setConfigValue(RotationConfigKeys.CURRENT_IMAGE_INDEX, String.valueOf(currentIndex));
+        setConfigValue(RotationConfigKeys.LAST_ROTATION_TIME, LocalDateTime.now().toString());
+
+        // Update active status
+        updateActiveStatus(allImages.get(currentIndex).getId());
     }
 
+    public void forceRotate() {
+        rotateToNextImage();
+    }
+
+    public void updateActiveStatus(String activeImageId) {
+        // Deactivate all images
+        List<Image> allImages = imageRepository.findAll();
+        allImages.forEach(img -> img.setActive(false));
+        imageRepository.saveAll(allImages);
+
+        // Activate current image
+        imageRepository.findById(activeImageId).ifPresent(img -> {
+            img.setActive(true);
+            imageRepository.save(img);
+        });
+    }
+
+    // Convert entity to DTO
+    public ImageDTO convertToDTO(Image image) {
+        if (image == null) return null;
+
+        ImageDTO dto = new ImageDTO();
+        dto.setId(image.getId());
+        dto.setFileName(image.getFileName());
+        dto.setOriginalName(image.getOriginalName());
+        dto.setUrl(image.getUrl());
+        dto.setFileType(image.getFileType());
+        dto.setFileSize(image.getFileSize());
+        dto.setUploadedAt(image.getUploadedAt());
+        dto.setActive(image.isActive());
+
+        // Format file size
+        if (image.getFileSize() != null) {
+            dto.setFormattedSize(formatFileSize(image.getFileSize()));
+        }
+
+        // Format date
+        if (image.getUploadedAt() != null) {
+            dto.setUploadDateFormatted(image.getUploadedAt().toString());
+        }
+
+        return dto;
+    }
+
+    private String formatFileSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        int exp = (int) (Math.log(bytes) / Math.log(1024));
+        String pre = "KMGTPE".charAt(exp-1) + "B";
+        return String.format("%.1f %s", bytes / Math.pow(1024, exp), pre);
+    }
+
+    public List<ImageDTO> getAllImages() {
+        return imageRepository.findAllByOrderByUploadedAtDesc()
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
 }
-

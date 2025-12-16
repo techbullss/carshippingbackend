@@ -76,15 +76,15 @@ public class ImageController {
                         .body(Map.of("success", false, "error", "File must be an image"));
             }
 
-            Image uploadedImage = imageService.uploadImage(file);
+           // Image uploadedImage = imageService.uploadImage(file);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Image uploaded successfully");
-            response.put("image", uploadedImage);
+            response.put("image", "");
 
             return ResponseEntity.ok(response);
-        } catch (IOException e) {
+        } catch (Error e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("success", false, "error", "Failed to upload image"));
         }

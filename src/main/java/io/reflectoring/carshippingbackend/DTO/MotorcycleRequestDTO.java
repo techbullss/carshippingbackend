@@ -16,7 +16,7 @@ public class MotorcycleRequestDTO {
     private String location;
     private String owner;
     private String description;
-    private int year;
+    private Integer year;
     private List<String> features;
 
     // NOT populated by JSON — set by controller from @RequestPart("images")

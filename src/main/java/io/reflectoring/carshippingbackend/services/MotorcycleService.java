@@ -2,6 +2,7 @@ package io.reflectoring.carshippingbackend.services;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import io.reflectoring.carshippingbackend.DTO.MotorcycleRequestDTO;
 import io.reflectoring.carshippingbackend.DTO.MotorcycleResponseDTO;
 import io.reflectoring.carshippingbackend.repository.MotorcycleRepository;
 import io.reflectoring.carshippingbackend.tables.Motorcycle;
@@ -71,91 +72,72 @@ public class MotorcycleService {
     }
 
     // ==================== CRUD OPERATIONS ====================
+// ==================== CREATE WITH DTO ====================
+    public MotorcycleResponseDTO createMotorcycle(MotorcycleRequestDTO dto, String userEmail) throws IOException {
 
-    // CREATE (Matches CarController pattern - accepts Map)
-    public MotorcycleResponseDTO createMotorcycle(
-            Map<String, String> motorcycleData,
-            MultipartFile[] images,
-            String userEmail, String userRole) throws IOException {
+        System.out.println("=== SERVICE: CREATE FROM DTO ===");
+        System.out.println("DTO: " + dto);
 
         Motorcycle motorcycle = new Motorcycle();
 
-        // Map data from request
-        motorcycle.setBrand(motorcycleData.get("brand"));
-        motorcycle.setModel(motorcycleData.get("model"));
-        motorcycle.setType(motorcycleData.get("type"));
+        // REQUIRED FIELDS
+        motorcycle.setBrand(dto.getBrand());
+        motorcycle.setModel(dto.getModel());
+        motorcycle.setOwner(userEmail); // Use authenticated user
 
-        // Parse numeric fields safely
+        // OPTIONAL FIELDS
+        motorcycle.setType(dto.getType());
+        motorcycle.setLocation(dto.getLocation());
+        motorcycle.setDescription(dto.getDescription());
+
+        // STATUS (default to PENDING if null)
+        motorcycle.setStatus(dto.getStatus() != null ? dto.getStatus() : "PENDING");
+
+        // NUMERIC FIELDS (DTO already has correct types)
+        motorcycle.setEngineCapacity(dto.getEngineCapacity());
+        motorcycle.setPrice(dto.getPrice());
+        motorcycle.setYear(dto.getYear());
+
+        // FEATURES (already List<String> in DTO)
+        motorcycle.setFeatures(dto.getFeatures());
+
+        // UPLOAD IMAGES from DTO
+        if (dto.getImages() != null && !dto.getImages().isEmpty()) {
+            List<String> imageUrls = new ArrayList<>();
+            for (MultipartFile image : dto.getImages()) {
+                if (image != null && !image.isEmpty()) {
+                    try {
+                        String url = uploadSingleImage(image);
+                        imageUrls.add(url);
+                        System.out.println("Uploaded image: " + url);
+                    } catch (IOException e) {
+                        System.err.println("Failed to upload image: " + e.getMessage());
+                    }
+                }
+            }
+            motorcycle.setImageUrls(imageUrls);
+        }
+
+        // DEBUG LOG
+        System.out.println("Saving motorcycle:");
+        System.out.println("  Brand: " + motorcycle.getBrand());
+        System.out.println("  Model: " + motorcycle.getModel());
+        System.out.println("  Price: " + motorcycle.getPrice());
+        System.out.println("  Year: " + motorcycle.getYear());
+        System.out.println("  Status: " + motorcycle.getStatus());
+        System.out.println("  Features: " + motorcycle.getFeatures());
+        System.out.println("  Image count: " + (motorcycle.getImageUrls() != null ? motorcycle.getImageUrls().size() : 0));
+
         try {
-            if (motorcycleData.containsKey("engineCapacity") &&
-                    !motorcycleData.get("engineCapacity").isBlank()) {
-                motorcycle.setEngineCapacity(
-                        Integer.parseInt(motorcycleData.get("engineCapacity")));
-            }
-        } catch (NumberFormatException e) {
-            // Keep null if invalid
+            Motorcycle saved = repo.save(motorcycle);
+            System.out.println("SAVED successfully with ID: " + saved.getId());
+            return toDto(saved);
+        } catch (Exception e) {
+            System.err.println("SAVE ERROR: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to save motorcycle: " + e.getMessage());
         }
-
-        try {
-            if (motorcycleData.containsKey("price") &&
-                    !motorcycleData.get("price").isBlank()) {
-                motorcycle.setPrice(
-                        Double.parseDouble(motorcycleData.get("price")));
-            }
-        } catch (NumberFormatException e) {
-            // Keep null if invalid
-        }
-
-        try {
-            if (motorcycleData.containsKey("year") &&
-                    !motorcycleData.get("year").isBlank()) {
-                motorcycle.setYear(
-                        Integer.parseInt(motorcycleData.get("year")));
-            }
-        } catch (NumberFormatException e) {
-            // Keep null if invalid
-        }
-
-        motorcycle.setLocation(motorcycleData.get("location"));
-        motorcycle.setOwner(userEmail); // Always use authenticated user's email
-        motorcycle.setStatus("PENDING"); // Default status
-
-        // Handle features (comma-separated string or JSON array)
-        if (motorcycleData.containsKey("features") &&
-                motorcycleData.get("features") != null) {
-            String featuresStr = motorcycleData.get("features");
-            if (featuresStr.startsWith("[") && featuresStr.endsWith("]")) {
-                // JSON array format
-                featuresStr = featuresStr.substring(1, featuresStr.length() - 1)
-                        .replace("\"", "");
-            }
-            if (!featuresStr.isBlank()) {
-                List<String> features = Arrays.stream(featuresStr.split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .collect(Collectors.toList());
-                motorcycle.setFeatures(features);
-            }
-        }
-
-        motorcycle.setDescription(motorcycleData.get("description"));
-
-        // Upload images if provided
-        if (images != null && images.length > 0) {
-            motorcycle.setImageUrls(uploadImages(images));
-        }
-
-        Motorcycle saved = repo.save(motorcycle);
-        return toDto(saved);
     }
-
-    // READ
-    public MotorcycleResponseDTO getMotorcycle(Long id) {
-        Motorcycle motorcycle = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Motorcycle not found with id " + id));
-        return toDto(motorcycle);
-    }
-
     // UPDATE (Matches CarController pattern)
     public MotorcycleResponseDTO updateMotorcycle(
             Long id,

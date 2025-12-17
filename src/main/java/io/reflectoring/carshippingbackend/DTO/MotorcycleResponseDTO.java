@@ -23,6 +23,6 @@ public class MotorcycleResponseDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<String> features;
-    private int year;
+    private Integer year;
 }
 

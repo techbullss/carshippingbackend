@@ -4,7 +4,9 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleDTO;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleResponseDTO;
+import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.repository.CommercialVehicleRepository;
+import io.reflectoring.carshippingbackend.tables.Car;
 import io.reflectoring.carshippingbackend.tables.CommercialVehicle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -39,7 +41,7 @@ public class CommercialVehicleService {
     }
 
     // ------------------- Convert Entity → DTO -------------------
-    public CommercialVehicleResponseDTO toDto(CommercialVehicle vehicle) {
+    private CommercialVehicleResponseDTO toDto(CommercialVehicle vehicle) {
         CommercialVehicleResponseDTO dto = new CommercialVehicleResponseDTO();
         dto.setId(vehicle.getId());
         dto.setBrand(vehicle.getBrand());
@@ -96,11 +98,11 @@ public class CommercialVehicleService {
         vehicle.setOwnerType(dto.getOwnerType());
         vehicle.setFeatures(dto.getFeatures());
         vehicle.setCustomSpecs(dto.getCustomSpecs());
+        // ADD THIS LINE:
         vehicle.setSeller(dto.getSeller());
         vehicle.setStatus(dto.getStatus());
         vehicle.setOwnerEmail(dto.getSeller());
     }
-
     // ------------------- Create -------------------
     public CommercialVehicleResponseDTO createVehicle(CommercialVehicleDTO dto, String userEmail, String userRole) throws IOException {
         CommercialVehicle vehicle = new CommercialVehicle();
@@ -108,10 +110,7 @@ public class CommercialVehicleService {
         if (dto.getImages() != null && !dto.getImages().isEmpty()) {
             vehicle.setImageUrls(uploadImages(dto.getImages()));
         }
-        // Set seller email from authenticated user
-        vehicle.setSeller(userEmail);
-        vehicle.setOwnerEmail(userEmail);
-
+        // You can add logic to set owner email, status, etc. if needed
         CommercialVehicle saved = repo.save(vehicle);
         return toDto(saved);
     }
@@ -143,18 +142,21 @@ public class CommercialVehicleService {
     // ------------------- Approve / Reject -------------------
     public CommercialVehicleResponseDTO approveVehicle(Long id) {
         CommercialVehicle vehicle = repo.findById(id).orElseThrow(() -> new RuntimeException("Vehicle not found"));
-        vehicle.setStatus("APPROVED");
+        vehicle.setStatus("Approved");
         repo.save(vehicle);
         return toDto(vehicle);
     }
 
     public CommercialVehicleResponseDTO rejectVehicle(Long id, String reason) {
         CommercialVehicle vehicle = repo.findById(id).orElseThrow(() -> new RuntimeException("Vehicle not found"));
+        // Implement your reject logic (e.g., set status = "REJECTED" and reason)
         vehicle.setStatus("REJECTED");
-        vehicle.setRejectionReason(reason);
+         vehicle.setRejectionReason(reason);
         repo.save(vehicle);
         return toDto(vehicle);
     }
+
+    // ------------------- Dashboard (User Role) -------------------
 
     // ------------------- Latest Arrivals -------------------
     public List<CommercialVehicleResponseDTO> getLatestArrivals() {
@@ -166,88 +168,45 @@ public class CommercialVehicleService {
     public List<CommercialVehicleResponseDTO> getSimilarVehicles(String brand, String model, Long excludeId) {
         List<CommercialVehicle> vehicles =
                 repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndStatusIgnoreCase(
-                        brand, model, "APPROVED", PageRequest.of(0, 10)
-                ).getContent();
-        if (excludeId != null) vehicles.removeIf(v -> v.getId().equals(excludeId));
+                        brand, model, "Approved", PageRequest.of(0, 10)
+                ).getContent();       if (excludeId != null) vehicles.removeIf(v -> v.getId().equals(excludeId));
         return vehicles.stream().map(this::toDto).toList();
     }
 
-    // ------------------- Public Search (for website) -------------------
-    public Page<CommercialVehicleResponseDTO> searchVehicles(int page, int size, Map<String, String> filters, Sort sort) {
+    // ------------------- Search -------------------
+    public Page<CommercialVehicleResponseDTO> searchVehicles(int page, int size, String search, String type, Sort sort) {
         Pageable pageable = PageRequest.of(page, size, sort);
+        Page<CommercialVehicle> results;
 
-        // For public search, always filter by APPROVED status
-        if (filters == null) {
-            filters = new HashMap<>();
+        if (search != null && !search.isBlank() && type != null && !type.isBlank()) {
+            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndTypeIgnoreCaseAndStatusIgnoreCase(
+                    search, search, type, "approved", pageable
+            );
+        } else if (search != null && !search.isBlank()) {
+            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndStatusIgnoreCase(
+                    search, search, "approved", pageable
+            );
+        } else if (type != null && !type.isBlank()) {
+            results = repo.findByTypeIgnoreCaseAndStatusIgnoreCase(
+                    type, "approved", pageable
+            );
+        } else {
+            results = repo.findByStatusIgnoreCase("approved", pageable);
         }
-        filters.put("status", "APPROVED");
 
-        Page<CommercialVehicle> results = repo.search(filters, pageable);
         return results.map(this::toDto);
     }
-
-    // ------------------- Search by User Role -------------------
-    public Page<CommercialVehicle> searchByUserRole(Map<String, String> allParams, int page, int size, Sort sort,
-                                                    String currentUserEmail, String currentUserRole) {
+    public Page<CommercialVehicle> searchByUserRole(Map<String, String> allParams, int page, int size, Sort sort, String currentUserEmail, String currentUserRole) {
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        String role = currentUserRole.replace("ROLE_", "").toUpperCase();
-
-        switch (role) {
+        switch (currentUserRole.replace("ROLE_", "").toUpperCase()) {
             case "ADMIN":
                 return repo.search(allParams, pageable);
             case "SELLER":
                 return repo.searchBySeller(allParams, pageable, currentUserEmail);
             default:
-                // For other roles (like PUBLIC), only show approved vehicles
-                if (allParams == null) {
-                    allParams = new HashMap<>();
-                }
-                allParams.put("status", "APPROVED");
-                return repo.search(allParams, pageable);
+                throw new RuntimeException("Unauthorized access");
         }
     }
 
-    // ------------------- Get filter options for dropdowns -------------------
-    public Map<String, List<String>> getFilterOptions() {
-        Map<String, List<String>> options = new HashMap<>();
-
-        // Get distinct brands
-        List<String> brands = repo.findAll().stream()
-                .map(CommercialVehicle::getBrand)
-                .filter(brand -> brand != null && !brand.trim().isEmpty())
-                .distinct()
-                .sorted()
-                .toList();
-        options.put("brands", brands);
-
-        // Get distinct models
-        List<String> models = repo.findAll().stream()
-                .map(CommercialVehicle::getModel)
-                .filter(model -> model != null && !model.trim().isEmpty())
-                .distinct()
-                .sorted()
-                .toList();
-        options.put("models", models);
-
-        // Get distinct types
-        List<String> types = repo.findAll().stream()
-                .map(CommercialVehicle::getType)
-                .filter(type -> type != null && !type.trim().isEmpty())
-                .distinct()
-                .sorted()
-                .toList();
-        options.put("types", types);
-
-        // Get distinct locations
-        List<String> locations = repo.findAll().stream()
-                .map(CommercialVehicle::getLocation)
-                .filter(location -> location != null && !location.trim().isEmpty())
-                .distinct()
-                .sorted()
-                .toList();
-        options.put("locations", locations);
-
-        return options;
-    }
 }

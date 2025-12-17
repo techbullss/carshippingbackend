@@ -28,7 +28,7 @@ public class Motorcycle {
     private Double price;
     private String location;
     private String owner;
-    private int year;
+    private Integer year;
 
     // FIX: Proper collection mapping for features
     @ElementCollection(fetch = FetchType.LAZY)

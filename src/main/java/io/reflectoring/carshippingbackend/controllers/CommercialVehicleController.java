@@ -1,10 +1,6 @@
 package io.reflectoring.carshippingbackend.controllers;
 
-import io.reflectoring.carshippingbackend.Enum.Role;
-import io.reflectoring.carshippingbackend.configaration.CustomUserDetails;
 import io.reflectoring.carshippingbackend.services.CommercialVehicleService;
-import io.reflectoring.carshippingbackend.tables.Car;
-import io.reflectoring.carshippingbackend.tables.CommercialVehicle;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleDTO;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleResponseDTO;
 import lombok.RequiredArgsConstructor;
@@ -19,9 +15,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/vehicles")
@@ -37,12 +34,27 @@ public class CommercialVehicleController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
             @RequestParam(defaultValue = "priceKes,desc") String sort,
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) String type
+            @RequestParam Map<String, String> allParams  // Capture ALL query parameters
     ) {
         String[] sortParts = sort.split(",");
         Sort s = Sort.by(Sort.Direction.fromString(sortParts.length > 1 ? sortParts[1] : "desc"), sortParts[0]);
-        return ResponseEntity.ok(service.searchVehicles(page, size, search, type, s));
+
+        // Filter out pagination and sorting parameters from filters
+        Map<String, String> filters = allParams.entrySet().stream()
+                .filter(entry -> !isPaginationOrSortParam(entry.getKey()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        // Add default status filter for public search
+        if (!filters.containsKey("status")) {
+            filters.put("status", "APPROVED");
+        }
+
+        Page<CommercialVehicleResponseDTO> results = service.searchVehicles(page, size, filters, s);
+        return ResponseEntity.ok(results);
+    }
+
+    private boolean isPaginationOrSortParam(String key) {
+        return key.equals("page") || key.equals("size") || key.equals("sort");
     }
 
     // ------------------- Create -------------------
@@ -87,33 +99,46 @@ public class CommercialVehicleController {
         dto.setImages(images);
         return ResponseEntity.ok(service.updateVehicle(id, dto));
     }
+
+    // ------------------- Dashboard -------------------
     @PostMapping("/dashboard")
     public ResponseEntity<?> dashboard(
-            @RequestBody Map<String, Object> payload
+            @RequestBody Map<String, Object> payload,
+            Authentication authentication
     ) {
         try {
-            String email = (String) payload.get("email");
-            String role = (String) payload.get("role");
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(401).body("Authentication required");
+            }
+
+            String email = authentication.getName();
+            String role = authentication.getAuthorities().iterator().next().getAuthority();
 
             int page = (int) payload.getOrDefault("page", 0);
             int size = (int) payload.getOrDefault("size", 12);
-            String search = (String) payload.getOrDefault("search", "");
-            String type = (String) payload.getOrDefault("type", "");
+
+            // Extract filters from payload
+            @SuppressWarnings("unchecked")
+            Map<String, String> filters = (Map<String, String>) payload.getOrDefault("filters", new HashMap<>());
+
+            // For sellers, add their email filter
+            if (role.equals("ROLE_SELLER")) {
+                filters.put("seller", email);
+            }
 
             Sort sortObj = Sort.by(Sort.Order.desc("priceKes"));
 
-            Page<CommercialVehicle> cars =
+            Page<CommercialVehicleResponseDTO> vehicles =
                     service.searchByUserRole(
-                            Map.of("search", search, "type", type),
-                            page, size, sortObj, email, role
-                    );
+                            filters, page, size, sortObj, email, role
+                    ).map(service::toDto);
 
-            return ResponseEntity.ok(cars);
+            return ResponseEntity.ok(vehicles);
 
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to fetch cars: " + e.getMessage());
+                    .body("Failed to fetch vehicles: " + e.getMessage());
         }
     }
 
@@ -150,8 +175,6 @@ public class CommercialVehicleController {
         return ResponseEntity.ok(Map.of("message", "Vehicle deleted successfully"));
     }
 
-    // ------------------- Dashboard by User -------------------
-
     // ------------------- Latest Arrivals -------------------
     @GetMapping("/latest")
     public ResponseEntity<List<CommercialVehicleResponseDTO>> latest() {
@@ -166,5 +189,11 @@ public class CommercialVehicleController {
             @RequestParam(required = false) Long exclude
     ) {
         return ResponseEntity.ok(service.getSimilarVehicles(brand, model, exclude));
+    }
+
+    // ------------------- Get Filter Options -------------------
+    @GetMapping("/filters/options")
+    public ResponseEntity<Map<String, List<String>>> getFilterOptions() {
+        return ResponseEntity.ok(service.getFilterOptions());
     }
 }

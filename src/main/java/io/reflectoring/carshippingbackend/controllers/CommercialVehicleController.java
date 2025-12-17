@@ -2,14 +2,19 @@ package io.reflectoring.carshippingbackend.controllers;
 
 import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.configaration.CustomUserDetails;
+import io.reflectoring.carshippingbackend.repository.CommercialVehicleRepository;
 import io.reflectoring.carshippingbackend.services.CommercialVehicleService;
+import io.reflectoring.carshippingbackend.services.CommercialVehicleSpecification;
 import io.reflectoring.carshippingbackend.tables.Car;
 import io.reflectoring.carshippingbackend.tables.CommercialVehicle;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleDTO;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +27,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/vehicles")
@@ -30,21 +36,38 @@ import java.util.Optional;
 public class CommercialVehicleController {
 
     private final CommercialVehicleService service;
+    private final CommercialVehicleRepository repo;
 
     // ------------------- Search / List -------------------
+    // ------------------- SIMPLER VERSION -------------------
     @GetMapping
-    public ResponseEntity<Page<CommercialVehicleResponseDTO>> search(
+    public ResponseEntity<Page<CommercialVehicleResponseDTO>> searchVehicles(
+            @RequestParam Map<String, String> allParams,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size,
-            @RequestParam(defaultValue = "priceKes,desc") String sort,
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) String type
-    ) {
+            @RequestParam(defaultValue = "priceKes,desc") String sort) {
+
         String[] sortParts = sort.split(",");
         Sort s = Sort.by(Sort.Direction.fromString(sortParts.length > 1 ? sortParts[1] : "desc"), sortParts[0]);
-        return ResponseEntity.ok(service.searchVehicles(page, size, search, type, s));
-    }
 
+        // Filter out pagination/sorting parameters
+        Map<String, String> filters = allParams.entrySet().stream()
+                .filter(entry -> !entry.getKey().equals("page") &&
+                        !entry.getKey().equals("size") &&
+                        !entry.getKey().equals("sort"))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        // Add APPROVED status for public access
+        if (!filters.containsKey("status")) {
+            filters.put("status", "APPROVED");
+        }
+
+        Pageable pageable = PageRequest.of(page, size, s);
+        Specification<CommercialVehicle> spec = CommercialVehicleSpecification.byFilters(filters);
+        Page<CommercialVehicle> results = repo.findAll(spec, pageable);
+
+        return ResponseEntity.ok(results.map(service::toDto));
+    }
     // ------------------- Create -------------------
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> create(

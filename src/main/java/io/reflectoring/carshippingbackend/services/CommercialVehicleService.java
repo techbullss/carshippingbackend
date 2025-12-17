@@ -40,7 +40,7 @@ public class CommercialVehicleService {
     }
 
     // ------------------- Convert Entity → DTO -------------------
-    private CommercialVehicleResponseDTO toDto(CommercialVehicle vehicle) {
+    public CommercialVehicleResponseDTO toDto(CommercialVehicle vehicle) {
         CommercialVehicleResponseDTO dto = new CommercialVehicleResponseDTO();
         dto.setId(vehicle.getId());
         dto.setBrand(vehicle.getBrand());
@@ -210,25 +210,41 @@ public class CommercialVehicleService {
     }
 
     // ------------------- Old Search (Legacy method - keep for compatibility) -------------------
-    public Page<CommercialVehicleResponseDTO> searchVehicles(int page, int size, String search, String type, Sort sort) {
-        Pageable pageable = PageRequest.of(page, size, sort);
-        Page<CommercialVehicle> results;
+    // ------------------- Search with Specifications (NEW IMPROVED VERSION) -------------------
+    public Page<CommercialVehicleResponseDTO> searchVehicles(
+            int page, int size,
+            String search, String type,
+            Sort sort,
+            Map<String, String> allFilters) {  // ADD THIS PARAMETER
 
-        if (search != null && !search.isBlank() && type != null && !type.isBlank()) {
-            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndTypeIgnoreCaseAndStatusIgnoreCase(
-                    search, search, type, "APPROVED", pageable  // Fixed: uppercase
-            );
-        } else if (search != null && !search.isBlank()) {
-            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndStatusIgnoreCase(
-                    search, search, "APPROVED", pageable  // Fixed: uppercase
-            );
-        } else if (type != null && !type.isBlank()) {
-            results = repo.findByTypeIgnoreCaseAndStatusIgnoreCase(
-                    type, "APPROVED", pageable  // Fixed: uppercase
-            );
-        } else {
-            results = repo.findByStatusIgnoreCase("APPROVED", pageable);  // Fixed: uppercase
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Build filters map from all parameters
+        Map<String, String> filters = new HashMap<>();
+
+        // Add basic search parameter (for backward compatibility)
+        if (search != null && !search.isBlank()) {
+            filters.put("search", search);
         }
+
+        // Add type filter (for backward compatibility)
+        if (type != null && !type.isBlank()) {
+            filters.put("type", type);
+        }
+
+        // Add ALL other filters from the request
+        if (allFilters != null) {
+            filters.putAll(allFilters);
+        }
+
+        // Always filter by APPROVED status for public access
+        if (!filters.containsKey("status")) {
+            filters.put("status", "APPROVED");
+        }
+
+        // Use Specifications for filtering
+        Specification<CommercialVehicle> spec = CommercialVehicleSpecification.byFilters(filters);
+        Page<CommercialVehicle> results = repo.findAll(spec, pageable);
 
         return results.map(this::toDto);
     }

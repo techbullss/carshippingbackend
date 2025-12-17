@@ -81,7 +81,7 @@ public class MotorcycleController {
             @RequestParam(required = false) String status
     ) {
         Page<MotorcycleResponseDTO> p = service.search(page, size, search, type, status);
-        return ResponseEntity.ok("ccc");
+        return ResponseEntity.ok(p);
     }
 
     @GetMapping("/filter")

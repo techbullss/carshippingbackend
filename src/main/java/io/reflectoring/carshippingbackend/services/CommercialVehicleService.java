@@ -4,12 +4,11 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleDTO;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleResponseDTO;
-import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.repository.CommercialVehicleRepository;
-import io.reflectoring.carshippingbackend.tables.Car;
 import io.reflectoring.carshippingbackend.tables.CommercialVehicle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -103,6 +102,7 @@ public class CommercialVehicleService {
         vehicle.setStatus(dto.getStatus());
         vehicle.setOwnerEmail(dto.getSeller());
     }
+
     // ------------------- Create -------------------
     public CommercialVehicleResponseDTO createVehicle(CommercialVehicleDTO dto, String userEmail, String userRole) throws IOException {
         CommercialVehicle vehicle = new CommercialVehicle();
@@ -113,6 +113,41 @@ public class CommercialVehicleService {
         // You can add logic to set owner email, status, etc. if needed
         CommercialVehicle saved = repo.save(vehicle);
         return toDto(saved);
+    }
+
+    // ==================== SPECIFICATION-BASED SEARCH METHODS (FIXED) ====================
+
+    public Page<CommercialVehicle> searchWithSpecifications(
+            Map<String, String> filters,
+            Pageable pageable) {
+
+        Specification<CommercialVehicle> spec = CommercialVehicleSpecification.byFilters(filters);
+        return repo.findAll(spec, pageable);
+    }
+
+    public Page<CommercialVehicle> searchBySellerWithSpecifications(
+            Map<String, String> filters,
+            String sellerEmail,
+            Pageable pageable) {
+
+        // FIXED: Removed deprecated Specification.where()
+        Specification<CommercialVehicle> spec = CommercialVehicleSpecification
+                .bySeller(sellerEmail)
+                .and(CommercialVehicleSpecification.byFilters(filters));
+
+        return repo.findAll(spec, pageable);
+    }
+
+    public Page<CommercialVehicle> searchPublicWithSpecifications(
+            Map<String, String> filters,
+            Pageable pageable) {
+
+        // FIXED: Removed deprecated Specification.where()
+        Specification<CommercialVehicle> spec = CommercialVehicleSpecification
+                .byApprovedStatus()
+                .and(CommercialVehicleSpecification.byFilters(filters));
+
+        return repo.findAll(spec, pageable);
     }
 
     // ------------------- Read -------------------
@@ -142,21 +177,18 @@ public class CommercialVehicleService {
     // ------------------- Approve / Reject -------------------
     public CommercialVehicleResponseDTO approveVehicle(Long id) {
         CommercialVehicle vehicle = repo.findById(id).orElseThrow(() -> new RuntimeException("Vehicle not found"));
-        vehicle.setStatus("Approved");
+        vehicle.setStatus("APPROVED");  // Fixed: Use uppercase consistently
         repo.save(vehicle);
         return toDto(vehicle);
     }
 
     public CommercialVehicleResponseDTO rejectVehicle(Long id, String reason) {
         CommercialVehicle vehicle = repo.findById(id).orElseThrow(() -> new RuntimeException("Vehicle not found"));
-        // Implement your reject logic (e.g., set status = "REJECTED" and reason)
         vehicle.setStatus("REJECTED");
-         vehicle.setRejectionReason(reason);
+        vehicle.setRejectionReason(reason);
         repo.save(vehicle);
         return toDto(vehicle);
     }
-
-    // ------------------- Dashboard (User Role) -------------------
 
     // ------------------- Latest Arrivals -------------------
     public List<CommercialVehicleResponseDTO> getLatestArrivals() {
@@ -168,45 +200,74 @@ public class CommercialVehicleService {
     public List<CommercialVehicleResponseDTO> getSimilarVehicles(String brand, String model, Long excludeId) {
         List<CommercialVehicle> vehicles =
                 repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndStatusIgnoreCase(
-                        brand, model, "Approved", PageRequest.of(0, 10)
-                ).getContent();       if (excludeId != null) vehicles.removeIf(v -> v.getId().equals(excludeId));
+                        brand, model, "APPROVED", PageRequest.of(0, 10)  // Fixed: uppercase
+                ).getContent();
+
+        if (excludeId != null) {
+            vehicles.removeIf(v -> v.getId().equals(excludeId));
+        }
         return vehicles.stream().map(this::toDto).toList();
     }
 
-    // ------------------- Search -------------------
+    // ------------------- Old Search (Legacy method - keep for compatibility) -------------------
     public Page<CommercialVehicleResponseDTO> searchVehicles(int page, int size, String search, String type, Sort sort) {
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<CommercialVehicle> results;
 
         if (search != null && !search.isBlank() && type != null && !type.isBlank()) {
             results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndTypeIgnoreCaseAndStatusIgnoreCase(
-                    search, search, type, "approved", pageable
+                    search, search, type, "APPROVED", pageable  // Fixed: uppercase
             );
         } else if (search != null && !search.isBlank()) {
             results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndStatusIgnoreCase(
-                    search, search, "approved", pageable
+                    search, search, "APPROVED", pageable  // Fixed: uppercase
             );
         } else if (type != null && !type.isBlank()) {
             results = repo.findByTypeIgnoreCaseAndStatusIgnoreCase(
-                    type, "approved", pageable
+                    type, "APPROVED", pageable  // Fixed: uppercase
             );
         } else {
-            results = repo.findByStatusIgnoreCase("approved", pageable);
+            results = repo.findByStatusIgnoreCase("APPROVED", pageable);  // Fixed: uppercase
         }
 
         return results.map(this::toDto);
     }
-    public Page<CommercialVehicle> searchByUserRole(Map<String, String> allParams, int page, int size, Sort sort, String currentUserEmail, String currentUserRole) {
-        Pageable pageable = PageRequest.of(page, size, sort);
 
-        switch (currentUserRole.replace("ROLE_", "").toUpperCase()) {
+    // ------------------- Search by User Role -------------------
+    public Page<CommercialVehicle> searchByUserRole(
+            Map<String, String> allParams,
+            int page, int size, Sort sort,
+            String currentUserEmail, String currentUserRole) {
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+        String role = currentUserRole.replace("ROLE_", "").toUpperCase();
+
+        switch (role) {
             case "ADMIN":
-                return repo.search(allParams, pageable);
+                return searchWithSpecifications(allParams, pageable);
             case "SELLER":
-                return repo.searchBySeller(allParams, pageable, currentUserEmail);
-            default:
-                throw new RuntimeException("Unauthorized access");
+                return searchBySellerWithSpecifications(allParams, currentUserEmail, pageable);
+            default: // PUBLIC
+                return searchPublicWithSpecifications(allParams, pageable);
         }
     }
 
+    // ==================== NEW DTO-BASED SEARCH METHODS (Recommended) ====================
+
+    public Page<CommercialVehicleResponseDTO> searchVehiclesDTO(
+            Map<String, String> filters,
+            int page, int size,
+            String sortField, String sortDirection) {
+
+        Sort sort = Sort.by(Sort.Direction.fromString(sortDirection), sortField);
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Automatically add APPROVED status filter for public access
+        if (!filters.containsKey("status")) {
+            filters.put("status", "APPROVED");
+        }
+
+        Page<CommercialVehicle> vehicles = searchWithSpecifications(filters, pageable);
+        return vehicles.map(this::toDto);
+    }
 }

@@ -19,6 +19,7 @@ public class MotorcycleResponseDTO {
     private String location;
     private String owner;
     private String description;
+    private String seller;
     private List<String> imageUrls;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

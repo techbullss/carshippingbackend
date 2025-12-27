@@ -15,6 +15,7 @@ public class MotorcycleRequestDTO {
     private Double price;
     private String location;
     private String owner;
+    private String seller;
     private String description;
     private Integer year;
     private List<String> features;

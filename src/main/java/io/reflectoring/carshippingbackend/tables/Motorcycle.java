@@ -23,7 +23,7 @@ public class Motorcycle {
 
     @Column(name = "engine_capacity")
     private Integer engineCapacity;
-
+    private String seller;
     private String status;
     private Double price;
     private String location;

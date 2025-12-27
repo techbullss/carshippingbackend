@@ -53,11 +53,10 @@ public class MotorcycleController {
 
         // Override owner with authenticated user's email
         dto.setOwner(userEmail);
+        dto.setSeller("PENDING");
 
         // Ensure status is set
-        if (dto.getStatus() == null || dto.getStatus().isBlank()) {
-            dto.setStatus("PENDING");
-        }
+
 
         try {
             MotorcycleResponseDTO created = service.createMotorcycle(dto, userEmail);

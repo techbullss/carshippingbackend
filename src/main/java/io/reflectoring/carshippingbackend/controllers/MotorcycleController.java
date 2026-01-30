@@ -6,6 +6,7 @@ import io.reflectoring.carshippingbackend.services.MotorcycleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -29,30 +30,16 @@ public class MotorcycleController {
     public ResponseEntity<?> create(
             @RequestPart("motorcycle") MotorcycleRequestDTO dto,
             @RequestPart(value = "images", required = false) List<MultipartFile> images,
-            Authentication authentication // ADD THIS PARAMETER
+            Authentication authentication
     ) throws IOException {
 
         System.out.println("=== CREATE MOTORCYCLE WITH DTO ===");
-        System.out.println("DTO received:");
-        System.out.println("  Brand: " + dto.getBrand());
-        System.out.println("  Model: " + dto.getModel());
-        System.out.println("  Type: " + dto.getType());
-        System.out.println("  Price: " + dto.getPrice());
-        System.out.println("  Year: " + dto.getYear());
-        System.out.println("  Owner from DTO: " + dto.getOwner()); // Add this
-        System.out.println("  Features: " + dto.getFeatures());
-        System.out.println("  Images param count: " + (images != null ? images.size() : 0));
 
         // Check authentication
         if (authentication != null && authentication.isAuthenticated()) {
             String userEmail = authentication.getName();
-            System.out.println("Authenticated user email: " + userEmail);
-
-            // Set owner from authenticated user
             dto.setOwner(userEmail);
             System.out.println("Setting owner to authenticated user: " + userEmail);
-        } else {
-            System.out.println("WARNING: User not authenticated!");
         }
 
         // Set images from request part
@@ -62,17 +49,16 @@ public class MotorcycleController {
 
         try {
             MotorcycleResponseDTO created = service.createMotorcycle(dto);
-            System.out.println("Created motorcycle with owner: " + created.getOwner());
             return ResponseEntity.ok(created);
         } catch (Exception e) {
             System.err.println("Error creating motorcycle: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of(
                     "error", "Failed to create motorcycle",
                     "message", e.getMessage()
             ));
         }
     }
+
     // PUBLIC WEBSITE ENDPOINT - Only approved vehicles
     @GetMapping("/public")
     public ResponseEntity<?> listPublic(
@@ -84,7 +70,6 @@ public class MotorcycleController {
             @RequestParam(required = false) String priceRange,
             @RequestParam(required = false) String year
     ) {
-        // For public website, always show only APPROVED vehicles
         Map<String, String> filters = new HashMap<>();
         if (search != null && !search.isBlank()) filters.put("search", search);
         if (type != null && !type.isBlank()) filters.put("type", type);
@@ -108,7 +93,6 @@ public class MotorcycleController {
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String status
     ) {
-        // Default to APPROVED if no status provided
         String actualStatus = (status != null && !status.isBlank()) ? status : "APPROVED";
         Page<MotorcycleResponseDTO> p = service.search(page, size, search, type, actualStatus);
         return ResponseEntity.ok(p);
@@ -126,11 +110,9 @@ public class MotorcycleController {
             @RequestParam(required = false) String owner,
             Authentication authentication
     ) {
-        // Get user info from authentication
         String currentUserEmail = authentication.getName();
         String currentUserRole = authentication.getAuthorities().iterator().next().getAuthority();
 
-        // Build filters
         Map<String, String> filters = new HashMap<>();
         if (search != null && !search.isBlank()) filters.put("search", search);
         if (type != null && !type.isBlank()) filters.put("type", type);
@@ -138,7 +120,6 @@ public class MotorcycleController {
         if (brand != null && !brand.isBlank()) filters.put("brand", brand);
         if (owner != null && !owner.isBlank()) filters.put("owner", owner);
 
-        // Use role-based search
         Page<MotorcycleResponseDTO> p = service.searchByUserRole(
                 filters, page, size, Sort.by(Sort.Direction.DESC, "createdAt"),
                 currentUserEmail, currentUserRole
@@ -157,34 +138,99 @@ public class MotorcycleController {
             @RequestParam(required = false) String priceRange,
             @RequestParam(required = false) String year
     ) {
-        // Only show approved vehicles in filter
         Page<MotorcycleResponseDTO> p = service.filterMotorcycles(page, size, make, type, priceRange, year);
         return ResponseEntity.ok(p);
     }
 
+    // GET SINGLE MOTORCYCLE
     @GetMapping("/{id}")
     public ResponseEntity<?> getOne(@PathVariable Long id) {
-        return ResponseEntity.ok("service.getOne(id)");
+        try {
+            MotorcycleResponseDTO motorcycle = service.getOne(id);
+            return ResponseEntity.ok(motorcycle);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of(
+                            "error", "Motorcycle not found",
+                            "message", e.getMessage()
+                    ));
+        }
     }
 
+    // UPDATE MOTORCYCLE
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> update(
             @PathVariable Long id,
             @RequestPart("motorcycle") MotorcycleRequestDTO dto,
-            @RequestPart(value = "images", required = false) List<MultipartFile> images
+            @RequestPart(value = "images", required = false) List<MultipartFile> images,
+            Authentication authentication
     ) throws IOException {
-        dto.setImages(images);
-        return ResponseEntity.ok("service.update(id, dto)");
+        try {
+            // Set owner from authenticated user if available
+            if (authentication != null && authentication.isAuthenticated()) {
+                dto.setOwner(authentication.getName());
+            }
+
+            dto.setImages(images);
+
+            // Convert DTO to Map
+            Map<String, String> motorcycleData = new HashMap<>();
+            motorcycleData.put("brand", dto.getBrand());
+            motorcycleData.put("model", dto.getModel());
+            motorcycleData.put("type", dto.getType());
+            motorcycleData.put("status", dto.getStatus());
+            motorcycleData.put("location", dto.getLocation());
+            motorcycleData.put("description", dto.getDescription());
+            motorcycleData.put("owner", dto.getOwner());
+
+            if (dto.getEngineCapacity() != null) {
+                motorcycleData.put("engineCapacity", dto.getEngineCapacity().toString());
+            }
+            if (dto.getPrice() != null) {
+                motorcycleData.put("price", dto.getPrice().toString());
+            }
+            if (dto.getYear() != null) {
+                motorcycleData.put("year", dto.getYear().toString());
+            }
+            if (dto.getFeatures() != null) {
+                motorcycleData.put("features", dto.getFeatures().toString());
+            }
+
+            MultipartFile[] imagesArray = (images != null) ? images.toArray(new MultipartFile[0]) : new MultipartFile[0];
+
+            MotorcycleResponseDTO updated = service.updateMotorcycle(id, motorcycleData, imagesArray);
+            return ResponseEntity.ok(updated);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of(
+                            "error", "Motorcycle not found",
+                            "message", e.getMessage()
+                    ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "error", "Failed to update motorcycle",
+                            "message", e.getMessage()
+                    ));
+        }
     }
 
+    // DELETE MOTORCYCLE
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Long id) {
-        // service.delete(id);
-        return ResponseEntity.noContent().build();
+        try {
+            service.deleteMotorcycle(id);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of(
+                            "error", "Motorcycle not found",
+                            "message", e.getMessage()
+                    ));
+        }
     }
 
     // ADDITIONAL ENDPOINTS
-
     @GetMapping("/latest")
     public ResponseEntity<?> getLatestArrivals() {
         return ResponseEntity.ok(service.getLatestArrivals());

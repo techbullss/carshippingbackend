@@ -75,15 +75,22 @@ public class MotorcycleService {
 
     // CREATE WITH DTO
     public MotorcycleResponseDTO createMotorcycle(MotorcycleRequestDTO dto) throws IOException {
-
         System.out.println("=== SERVICE: CREATE FROM DTO ===");
-        System.out.println("DTO: " + dto);
+        System.out.println("DTO Owner: " + dto.getOwner()); // Debug
 
         Motorcycle motorcycle = new Motorcycle();
 
         // REQUIRED FIELDS
         motorcycle.setBrand(dto.getBrand());
         motorcycle.setModel(dto.getModel());
+
+        // SET OWNER FROM DTO (CRITICAL!)
+        if (dto.getOwner() != null && !dto.getOwner().trim().isEmpty()) {
+            motorcycle.setOwner(dto.getOwner());
+            System.out.println("Service: Setting owner to: " + dto.getOwner());
+        } else {
+            System.out.println("Service WARNING: Owner is null or empty in DTO!");
+        }
 
         // OPTIONAL FIELDS
         motorcycle.setType(dto.getType());
@@ -93,15 +100,15 @@ public class MotorcycleService {
         // STATUS (default to PENDING if null)
         motorcycle.setStatus(dto.getStatus() != null ? dto.getStatus() : "PENDING");
 
-        // NUMERIC FIELDS (DTO already has correct types)
+        // NUMERIC FIELDS
         motorcycle.setEngineCapacity(dto.getEngineCapacity());
         motorcycle.setPrice(dto.getPrice());
         motorcycle.setYear(dto.getYear());
 
-        // FEATURES (already List<String> in DTO)
+        // FEATURES
         motorcycle.setFeatures(dto.getFeatures());
 
-        // UPLOAD IMAGES from DTO
+        // UPLOAD IMAGES
         if (dto.getImages() != null && !dto.getImages().isEmpty()) {
             List<String> imageUrls = new ArrayList<>();
             for (MultipartFile image : dto.getImages()) {
@@ -122,15 +129,15 @@ public class MotorcycleService {
         System.out.println("Saving motorcycle:");
         System.out.println("  Brand: " + motorcycle.getBrand());
         System.out.println("  Model: " + motorcycle.getModel());
+        System.out.println("  Owner: " + motorcycle.getOwner()); // Add this
         System.out.println("  Price: " + motorcycle.getPrice());
         System.out.println("  Year: " + motorcycle.getYear());
         System.out.println("  Status: " + motorcycle.getStatus());
-        System.out.println("  Features: " + motorcycle.getFeatures());
-        System.out.println("  Image count: " + (motorcycle.getImageUrls() != null ? motorcycle.getImageUrls().size() : 0));
 
         try {
             Motorcycle saved = repo.save(motorcycle);
             System.out.println("SAVED successfully with ID: " + saved.getId());
+            System.out.println("Saved owner in DB: " + saved.getOwner()); // Add this
             return toDto(saved);
         } catch (Exception e) {
             System.err.println("SAVE ERROR: " + e.getMessage());
@@ -138,7 +145,6 @@ public class MotorcycleService {
             throw new RuntimeException("Failed to save motorcycle: " + e.getMessage());
         }
     }
-
     // UPDATE
     public MotorcycleResponseDTO updateMotorcycle(
             Long id,

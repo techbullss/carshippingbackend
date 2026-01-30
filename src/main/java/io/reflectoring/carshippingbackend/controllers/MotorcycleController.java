@@ -28,7 +28,8 @@ public class MotorcycleController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> create(
             @RequestPart("motorcycle") MotorcycleRequestDTO dto,
-            @RequestPart(value = "images", required = false) List<MultipartFile> images
+            @RequestPart(value = "images", required = false) List<MultipartFile> images,
+            Authentication authentication // ADD THIS PARAMETER
     ) throws IOException {
 
         System.out.println("=== CREATE MOTORCYCLE WITH DTO ===");
@@ -38,8 +39,21 @@ public class MotorcycleController {
         System.out.println("  Type: " + dto.getType());
         System.out.println("  Price: " + dto.getPrice());
         System.out.println("  Year: " + dto.getYear());
+        System.out.println("  Owner from DTO: " + dto.getOwner()); // Add this
         System.out.println("  Features: " + dto.getFeatures());
         System.out.println("  Images param count: " + (images != null ? images.size() : 0));
+
+        // Check authentication
+        if (authentication != null && authentication.isAuthenticated()) {
+            String userEmail = authentication.getName();
+            System.out.println("Authenticated user email: " + userEmail);
+
+            // Set owner from authenticated user
+            dto.setOwner(userEmail);
+            System.out.println("Setting owner to authenticated user: " + userEmail);
+        } else {
+            System.out.println("WARNING: User not authenticated!");
+        }
 
         // Set images from request part
         dto.setImages(images);
@@ -48,6 +62,7 @@ public class MotorcycleController {
 
         try {
             MotorcycleResponseDTO created = service.createMotorcycle(dto);
+            System.out.println("Created motorcycle with owner: " + created.getOwner());
             return ResponseEntity.ok(created);
         } catch (Exception e) {
             System.err.println("Error creating motorcycle: " + e.getMessage());
@@ -58,7 +73,6 @@ public class MotorcycleController {
             ));
         }
     }
-
     // PUBLIC WEBSITE ENDPOINT - Only approved vehicles
     @GetMapping("/public")
     public ResponseEntity<?> listPublic(

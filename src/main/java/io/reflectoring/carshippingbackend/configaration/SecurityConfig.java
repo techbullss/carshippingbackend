@@ -115,6 +115,7 @@ public class SecurityConfig {
                         // Admin endpoints (extra restricted)
                         // Allow GET requests to users endpoint
                         .requestMatchers(HttpMethod.GET, "/api/admin/users", "/api/admin/users/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/motorcycles/dashboard/**").authenticated()
 
 
                         // Everything else still requires authentication

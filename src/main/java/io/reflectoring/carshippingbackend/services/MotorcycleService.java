@@ -72,7 +72,8 @@ public class MotorcycleService {
     }
 
     // ==================== CRUD OPERATIONS ====================
-// ==================== CREATE WITH DTO ====================
+
+    // CREATE WITH DTO
     public MotorcycleResponseDTO createMotorcycle(MotorcycleRequestDTO dto) throws IOException {
 
         System.out.println("=== SERVICE: CREATE FROM DTO ===");
@@ -83,7 +84,6 @@ public class MotorcycleService {
         // REQUIRED FIELDS
         motorcycle.setBrand(dto.getBrand());
         motorcycle.setModel(dto.getModel());
-        // Use authenticated user
 
         // OPTIONAL FIELDS
         motorcycle.setType(dto.getType());
@@ -138,7 +138,8 @@ public class MotorcycleService {
             throw new RuntimeException("Failed to save motorcycle: " + e.getMessage());
         }
     }
-    // UPDATE (Matches CarController pattern)
+
+    // UPDATE
     public MotorcycleResponseDTO updateMotorcycle(
             Long id,
             Map<String, String> motorcycleData,
@@ -233,18 +234,19 @@ public class MotorcycleService {
         return toDto(motorcycle);
     }
 
-    // ==================== SEARCH & FILTER METHODS ====================
+    // ==================== NEW METHODS FOR DASHBOARD & PUBLIC ENDPOINTS ====================
 
-    // Public search (APPROVED only) - matches CarController pattern
-    public Page<MotorcycleResponseDTO> searchApproved(
-            Map<String, String> allParams,
+    // 1. Search by filters (used by public endpoint)
+    public Page<MotorcycleResponseDTO> searchByFilters(
+            Map<String, String> filters,
             int page, int size, Sort sort) {
 
         Pageable pageable = PageRequest.of(page, size, sort);
-        Map<String, String> filters = new HashMap<>(allParams);
 
-        // Force APPROVED status for public access
-        filters.put("status", "APPROVED");
+        // Always filter to APPROVED for public access unless specified
+        if (!filters.containsKey("status")) {
+            filters.put("status", "APPROVED");
+        }
 
         Specification<Motorcycle> spec = MotorcycleSpecification.byFilters(filters);
         Page<Motorcycle> results = repo.findAll(spec, pageable);
@@ -252,7 +254,14 @@ public class MotorcycleService {
         return results.map(this::toDto);
     }
 
-    // Role-based search (for dashboard)
+    // 2. Get single motorcycle by ID
+    public MotorcycleResponseDTO getOne(Long id) {
+        Motorcycle motorcycle = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Motorcycle not found with id: " + id));
+        return toDto(motorcycle);
+    }
+
+    // 3. Role-based search (for dashboard)
     public Page<MotorcycleResponseDTO> searchByUserRole(
             Map<String, String> allParams,
             int page, int size, Sort sort,
@@ -274,6 +283,25 @@ public class MotorcycleService {
                 results = searchPublicWithSpecifications(allParams, pageable);
                 break;
         }
+
+        return results.map(this::toDto);
+    }
+
+    // ==================== EXISTING SEARCH & FILTER METHODS ====================
+
+    // Public search (APPROVED only)
+    public Page<MotorcycleResponseDTO> searchApproved(
+            Map<String, String> allParams,
+            int page, int size, Sort sort) {
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Map<String, String> filters = new HashMap<>(allParams);
+
+        // Force APPROVED status for public access
+        filters.put("status", "APPROVED");
+
+        Specification<Motorcycle> spec = MotorcycleSpecification.byFilters(filters);
+        Page<Motorcycle> results = repo.findAll(spec, pageable);
 
         return results.map(this::toDto);
     }
@@ -301,7 +329,7 @@ public class MotorcycleService {
         return repo.findAll(spec, pageable);
     }
 
-    // Legacy filter endpoint (optional - keep for compatibility)
+    // Legacy filter endpoint
     public Page<MotorcycleResponseDTO> filterMotorcycles(
             int page, int size,
             String make, String type,
@@ -326,6 +354,31 @@ public class MotorcycleService {
         Pageable pageable = PageRequest.of(page, size);
         Specification<Motorcycle> spec = MotorcycleSpecification.byFilters(filters);
         Page<Motorcycle> results = repo.findAll(spec, pageable);
+
+        return results.map(this::toDto);
+    }
+
+    // Legacy search (for backward compatibility)
+    public Page<MotorcycleResponseDTO> search(
+            int page, int size,
+            String search, String type, String status) {
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Motorcycle> results;
+
+        if (search != null && !search.isBlank() && type != null && !type.isBlank()) {
+            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndStatus(
+                    search, search, status != null ? status : "APPROVED", pageable);
+        } else if (search != null && !search.isBlank()) {
+            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndStatus(
+                    search, search, status != null ? status : "APPROVED", pageable);
+        } else if (type != null && !type.isBlank()) {
+            results = repo.findByTypeAndStatus(type, status != null ? status : "APPROVED", pageable);
+        } else if (status != null && !status.isBlank()) {
+            results = repo.findByStatus(status, pageable);
+        } else {
+            results = repo.findByStatus("APPROVED", pageable);
+        }
 
         return results.map(this::toDto);
     }
@@ -356,31 +409,6 @@ public class MotorcycleService {
     // Get distinct models by brand
     public List<Map<String, Object>> getDistinctModelsByBrand(String brand) {
         return repo.findDistinctModelsByBrand(brand);
-    }
-
-    // Legacy search (for backward compatibility)
-    public Page<MotorcycleResponseDTO> search(
-            int page, int size,
-            String search, String type, String status) {
-
-        Pageable pageable = PageRequest.of(page, size);
-        Page<Motorcycle> results;
-
-        if (search != null && !search.isBlank() && type != null && !type.isBlank()) {
-            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndStatus(
-                    search, search, status != null ? status : "APPROVED", pageable);
-        } else if (search != null && !search.isBlank()) {
-            results = repo.findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndStatus(
-                    search, search, status != null ? status : "APPROVED", pageable);
-        } else if (type != null && !type.isBlank()) {
-            results = repo.findByTypeAndStatus(type, status != null ? status : "APPROVED", pageable);
-        } else if (status != null && !status.isBlank()) {
-            results = repo.findByStatus(status, pageable);
-        } else {
-            results = repo.findByStatus("APPROVED", pageable);
-        }
-
-        return results.map(this::toDto);
     }
 
     // Filter options for dropdowns

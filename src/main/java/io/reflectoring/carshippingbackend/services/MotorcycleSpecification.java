@@ -119,6 +119,14 @@ public class MotorcycleSpecification {
                 } catch (NumberFormatException ignored) {}
             }
 
+            // ============= YEAR AS STRING (single year) =============
+            if (params.containsKey("year") && !params.get("year").isBlank()) {
+                try {
+                    int year = Integer.parseInt(params.get("year"));
+                    preds.add(cb.equal(root.get("year"), year));
+                } catch (NumberFormatException ignored) {}
+            }
+
             // Combine all predicates
             return cb.and(preds.toArray(new Predicate[0]));
         };

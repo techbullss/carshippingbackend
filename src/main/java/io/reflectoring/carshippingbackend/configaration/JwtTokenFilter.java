@@ -103,6 +103,10 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     }
 
     private boolean isPublicGetPath(String path) {
+        if (path.startsWith("/api/motorcycles/dashboard")) {
+            return false; // Dashboard requires authentication
+        }
+
         return path.startsWith("/api/cars") ||
                 path.startsWith("/api/motorcycles") ||
                 path.startsWith("/api/commercial") ||

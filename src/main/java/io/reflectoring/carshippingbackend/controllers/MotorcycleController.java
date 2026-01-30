@@ -43,23 +43,21 @@ public class MotorcycleController {
 
 
 
-        String userEmail = "bwanamaina2010@gmail.com";
-        String userRole = "ROLE_ADMIN";
 
-        System.out.println("User: " + userEmail + ", Role: " + userRole);
+
 
         // Set images from request part
         dto.setImages(images);
 
         // Override owner with authenticated user's email
-        dto.setOwner(userEmail);
-        dto.setSeller("PENDING");
+
+        dto.setSeller ("PENDING");
 
         // Ensure status is set
 
 
         try {
-            MotorcycleResponseDTO created = service.createMotorcycle(dto, userEmail);
+            MotorcycleResponseDTO created = service.createMotorcycle(dto);
             return ResponseEntity.ok(created);
         } catch (Exception e) {
             System.err.println("Error creating motorcycle: " + e.getMessage());

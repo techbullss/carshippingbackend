@@ -73,7 +73,7 @@ public class MotorcycleService {
 
     // ==================== CRUD OPERATIONS ====================
 // ==================== CREATE WITH DTO ====================
-    public MotorcycleResponseDTO createMotorcycle(MotorcycleRequestDTO dto, String userEmail) throws IOException {
+    public MotorcycleResponseDTO createMotorcycle(MotorcycleRequestDTO dto) throws IOException {
 
         System.out.println("=== SERVICE: CREATE FROM DTO ===");
         System.out.println("DTO: " + dto);
@@ -83,7 +83,7 @@ public class MotorcycleService {
         // REQUIRED FIELDS
         motorcycle.setBrand(dto.getBrand());
         motorcycle.setModel(dto.getModel());
-        motorcycle.setOwner(userEmail); // Use authenticated user
+        // Use authenticated user
 
         // OPTIONAL FIELDS
         motorcycle.setType(dto.getType());

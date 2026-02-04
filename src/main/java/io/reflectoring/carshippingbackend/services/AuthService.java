@@ -55,10 +55,10 @@ public class AuthService {
             throw new RuntimeException("Invalid password");
         }
 
-        // ✅ Directly get roles (already Set<Role>)
+        //  Directly get roles (already Set<Role>)
         Set<Role> roles = user.getRoles();
 
-        // ✅ Generate JWT including roles
+
         return jwtUtil.generateToken(user.getEmail(), roles);
     }
 

@@ -69,7 +69,18 @@ public class AdminController {
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
         return ResponseEntity.ok(convertToUserResponse(user));
     }
+    @GetMapping("/users/email/{email}")
+    public ResponseEntity<UserResponse> getUserByEmail(@PathVariable String email) {
+        try {
+            User user = userService.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
 
+            // Return public seller info (you might want to exclude sensitive data)
+            return ResponseEntity.ok(convertToUserResponse(user));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch user by email", e);
+        }
+    }
     /**
      * ============================
      *  UPDATE USER

@@ -23,11 +23,7 @@ public class UserProfileController {
 
     private final UserService userService;
 
-    /**
-     * ============================
-     * 🔹 GET CURRENT USER PROFILE
-     * ============================
-     */
+
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser() {
         try {

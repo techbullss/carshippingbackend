@@ -122,7 +122,37 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
+    @PostMapping("/signup-guest")
+    public ResponseEntity<?> signupGuest(@RequestBody @Valid SignupRequest request) {
 
+        try {
+            Set<Role> roles = new HashSet<>();
+            roles.add(Role.GUEST);
+
+            // Guests are auto-approved
+            request.setStatus("APPROVED");
+
+            // Email verification (optional)
+            String verificationCode = String.valueOf(new Random().nextInt(900000) + 100000);
+            request.setVerificationCode(verificationCode);
+            request.setEmailVerified(false);
+
+            // No documents needed
+            request.setGovtId(null);
+            request.setPassportPhoto(null);
+
+            // Register user
+            AuthResponse authResponse = authService.registerUser(request, roles);
+
+            emailService.sendVerificationEmail(request.getEmail(), verificationCode);
+
+            return ResponseEntity.ok("Guest registered successfully. Please verify your email.");
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(new AuthResponse("Registration failed: " + e.getMessage()));
+        }
+    }
     @PostMapping("/resend-code")
     public ResponseEntity<?> resendVerificationCode(@RequestBody Map<String, String> request) {
         String email = request.get("email");

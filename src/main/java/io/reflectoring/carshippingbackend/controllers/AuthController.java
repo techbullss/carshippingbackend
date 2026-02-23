@@ -53,20 +53,15 @@ public class AuthController {
     @Value("${app.jwt.expiration}")
     private Long jwtExpiration;
 
-    /**
-     * ============================
-     * 🔹 USER SIGNUP
-     * ============================
-     */
+
     @PostMapping(value = "/signup", consumes =MediaType.MULTIPART_FORM_DATA_VALUE )
-    public ResponseEntity<AuthResponse> signup(
+    public ResponseEntity<?> signup(
             @RequestPart("data")  SignupRequest request,
             @RequestPart(value = "govtId", required = false) MultipartFile govtId,
-            @RequestPart(value = "passportPhoto", required = false) MultipartFile passportPhoto,
-            HttpServletResponse response) {
+            @RequestPart(value = "passportPhoto", required = false) MultipartFile passportPhoto
+            ) {
 
-        System.out.println("=== SIGNUP REQUEST RECEIVED ===");
-        System.out.println("Email: " + request.getEmail());
+
 
         try {
             Set<Role> roles = new HashSet<>();
@@ -82,11 +77,11 @@ public class AuthController {
                     roles.clear();
                     roles.add(givenRole);
                 } catch (IllegalArgumentException e) {
-                    System.out.println("⚠️ Invalid role provided: " + request.getRole() + ". Defaulting to USER.");
+                    System.out.println("⚠ Invalid role provided: " + request.getRole() + ". Defaulting to USER.");
                 }
             }
 
-            // 🔹 Upload files (if present)
+            //  Upload files (if present)
             String govtIdUrl = null;
             String passportPhotoUrl = null;
 
@@ -97,23 +92,21 @@ public class AuthController {
                 passportPhotoUrl = cloudStorageService.uploadFile(passportPhoto, "passport-photos");
             }
 
-            // 🔹 Set file URLs in request before registering
             request.setGovtId(govtIdUrl);
             request.setPassportPhoto(passportPhotoUrl);
 
-            // 🔹 Register user
+            //  Register user
             AuthResponse authResponse = authService.registerUser(request, roles);
             emailService.sendVerificationEmail(request.getEmail(), verificationCode);
 
-            // 🔹 Generate JWT & cookie
-            String token = jwtUtil.generateToken(request.getEmail(), roles);
-            setAuthCookie(response, token);
+            //  Generate JWT & cookie
 
-            System.out.println("✅ USER REGISTERED SUCCESSFULLY: " + request.getEmail());
-            return ResponseEntity.ok(authResponse);
+
+            System.out.println(" USER REGISTERED SUCCESSFULLY: " + request.getEmail());
+            return ResponseEntity.ok("User register watting for approval");
 
         } catch (Exception e) {
-            System.err.println("❌ SIGNUP ERROR: " + e.getMessage());
+            System.err.println(" SIGNUP ERROR: " + e.getMessage());
             return ResponseEntity.badRequest().body(new AuthResponse("Registration failed: " + e.getMessage()));
         }
     }
@@ -144,7 +137,7 @@ public class AuthController {
 
     /**
      * ============================
-     * 🔹 USER LOGIN
+     *  USER LOGIN
      * ============================
      */
     @PostMapping("/login")
@@ -156,6 +149,19 @@ public class AuthController {
 
         User user = userService.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!"VERIFIED".equalsIgnoreCase(user.getStatus())) {
+            return ResponseEntity
+                    .status(HttpStatus.FORBIDDEN)
+                    .body(new AuthResponse(
+                            "Your account is not verified. Please verify your email to log in.",
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null
+                    ));
+        }
         Set<String> roleNames = user.getRoles()
                 .stream()
                 .map(Enum::name)
@@ -177,7 +183,7 @@ public class AuthController {
 
     /**
      * ============================
-     * 🔹 LOGOUT
+     *  LOGOUT
      * ============================
      */
     @PostMapping("/logout")
@@ -222,7 +228,7 @@ public class AuthController {
 
     /**
      * ============================
-     * 🔹 HELPER METHODS
+     *  HELPER METHODS
      * ============================
      */
     private String getTokenFromRequest(HttpServletRequest request) {

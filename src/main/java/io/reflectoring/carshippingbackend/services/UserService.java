@@ -244,7 +244,7 @@ public class UserService implements UserDetailsService {
     }
     /**
      * ============================
-     * 🔹 GET CURRENT USER FROM JWT TOKEN
+     *  GET CURRENT USER FROM JWT TOKEN
      * ============================
      */
     public Optional<User> getCurrentUserFromToken() {

@@ -27,7 +27,7 @@ public class AdminController {
 
     /**
      * ============================
-     * 🔹 GET ALL USERS (Admin Only)
+     *  GET ALL USERS (Admin Only)
      * ============================
      */
     @GetMapping("/users")
@@ -109,7 +109,7 @@ public class AdminController {
 
     /**
      * ============================
-     * 🔹 UPDATE USER ROLES
+     *  UPDATE USER ROLES
      * ============================
      */
     @PutMapping("/users/roles/{id}")

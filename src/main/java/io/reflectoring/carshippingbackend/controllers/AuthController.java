@@ -149,7 +149,7 @@ public class AuthController {
 
         User user = userService.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        if (!"VERIFIED".equalsIgnoreCase(user.getStatus())) {
+        if (!"APPROVED".equalsIgnoreCase(user.getStatus())) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
                     .body(new AuthResponse(

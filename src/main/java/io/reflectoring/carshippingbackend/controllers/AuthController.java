@@ -153,7 +153,7 @@ public class AuthController {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
                     .body(new AuthResponse(
-                            "Your account is not verified. Please verify your email to log in.",
+                            "Your account is not Approved. Please email for more information.info@f-carshipping.com",
                             null,
                             null,
                             null,

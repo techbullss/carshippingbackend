@@ -31,6 +31,7 @@ public class UserService implements UserDetailsService {
     private final PasswordEncoder passwordEncoder;
     private final Cloudinary cloudinary;
 
+    private final EmailService emailService;
     public User createUser(SignupRequest signupRequest, Set<Role> roles) {
         if (userRepository.existsByEmail(signupRequest.getEmail())) {
             throw new RuntimeException("Email is already in use!");
@@ -278,8 +279,12 @@ public class UserService implements UserDetailsService {
         // Update user status to approved
         user.setStatus("approved");
 
-        // You might also want to set other fields when approving
+
         user.setUpdatedAt(LocalDateTime.now());
+        emailService.sendApprovalEmail(
+                user.getEmail(),
+                user.getFirstName()
+        );
 
         return userRepository.save(user);
     }

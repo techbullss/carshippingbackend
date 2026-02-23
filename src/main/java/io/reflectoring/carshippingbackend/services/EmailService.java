@@ -40,16 +40,49 @@ public class EmailService {
             message.setText(content);
 
             mailSender.send(message);
-            log.info("✅ Verification email sent successfully to {}", to);
+            log.info(" Verification email sent successfully to {}", to);
 
         } catch (Exception e) {
-            log.error("❌ Failed to send verification email to {}: {}", to, e.getMessage());
+            log.error(" Failed to send verification email to {}: {}", to, e.getMessage());
         }
     }
 
-    /**
-     * Generic method to send any simple email (like password reset)
-     */
+    @Async
+    public void sendApprovalEmail(String to, String firstName) {
+        try {
+            String subject = " Your Account Has Been Approved - f-carshipping.com";
+
+            String content = """
+                Dear %s,
+
+                Congratulations! 
+
+                Your account has been successfully approved.
+                You can now log in and start using all features of f-carshipping.com.
+
+                Login here:
+                https://f-carshipping.com/Login
+
+                If you have any questions, feel free to contact us.
+
+                Regards,
+                The f-carshipping Team
+                """.formatted(firstName);
+
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setFrom("info@f-carshipping.com");
+            message.setSubject(subject);
+            message.setText(content);
+
+            mailSender.send(message);
+            log.info(" Approval email sent successfully to {}", to);
+
+        } catch (Exception e) {
+            log.error(" Failed to send approval email to {}: {}", to, e.getMessage());
+        }
+    }
+
     @Async
     public void sendSimpleMessage(String to, String subject, String content) {
         try {
@@ -60,10 +93,10 @@ public class EmailService {
             message.setText(content);
 
             mailSender.send(message);
-            log.info("✅ Email sent successfully to {}", to);
+            log.info(" Email sent successfully to {}", to);
 
         } catch (Exception e) {
-            log.error("❌ Failed to send email to {}: {}", to, e.getMessage());
+            log.error(" Failed to send email to {}: {}", to, e.getMessage());
         }
     }
 }

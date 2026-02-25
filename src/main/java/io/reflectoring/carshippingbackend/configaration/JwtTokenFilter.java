@@ -111,8 +111,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                 path.startsWith("/api/motorcycles") ||
                 path.startsWith("/api/commercial") ||
                 path.startsWith("/api/admin/users") ||
-                path.startsWith("/api/images")||
-                path.startsWith("/api/reviews");
+                path.startsWith("/api/images");
     }
 
     private boolean isPublicEndpoint(String path, String method) {

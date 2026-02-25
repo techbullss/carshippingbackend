@@ -19,8 +19,7 @@ public class ReviewController {
 
     // Create review (public)
     @PostMapping("/save")
-    public ResponseEntity<?> createReview(
-            @RequestBody ReviewRequest request) {
+    public ResponseEntity<?> createReview() {
         return ResponseEntity.ok("ggggggggg");
     }
 

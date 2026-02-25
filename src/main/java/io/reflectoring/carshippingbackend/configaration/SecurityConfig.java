@@ -82,8 +82,8 @@ public class SecurityConfig {
 
                         // Public routes (like login/register)
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers(" /api/auxiliary/**").permitAll()
-                        .requestMatchers(" /api/reviews/**").permitAll()
+                        .requestMatchers("/api/auxiliary/**").permitAll()
+                        .requestMatchers("/api/reviews/**").permitAll()
 
 
 

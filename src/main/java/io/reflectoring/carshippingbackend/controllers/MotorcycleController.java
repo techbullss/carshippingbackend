@@ -245,4 +245,21 @@ public class MotorcycleController {
     public ResponseEntity<?> getBrandsWithCount() {
         return ResponseEntity.ok(service.getDistinctBrandsWithCount());
     }
+    @PutMapping("/{id}/approve")
+    public ResponseEntity<MotorcycleResponseDTO> approveMotorcycle(
+            @PathVariable Long id) {
+
+        MotorcycleResponseDTO response = service.approveMotorcycle(id);
+        return ResponseEntity.ok(response);
+    }
+
+
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<MotorcycleResponseDTO> rejectMotorcycle(
+            @PathVariable Long id) {
+
+        return ResponseEntity.ok(
+                service.rejectMotorcycle(id, null)
+        );
+    }
 }

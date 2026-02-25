@@ -19,9 +19,9 @@ public class ReviewController {
 
     // Create review (public)
     @PostMapping("/save")
-    public ResponseEntity<ReviewSeller> createReview(
+    public ResponseEntity<?> createReview(
             @RequestBody ReviewRequest request) {
-        return ResponseEntity.ok(reviewService.createReview(request));
+        return ResponseEntity.ok("ggggggggg");
     }
 
     // Get approved seller reviews

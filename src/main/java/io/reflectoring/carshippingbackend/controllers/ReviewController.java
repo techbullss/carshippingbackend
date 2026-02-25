@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/reviews")
 @RequiredArgsConstructor
+@RequestMapping("/api/reviews")
 @CrossOrigin(origins = {"https://f-carshipping.com", "https://www.f-carshipping.com"})
 public class ReviewController {
 

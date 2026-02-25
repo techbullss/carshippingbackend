@@ -87,6 +87,7 @@ public class SecurityConfig {
 
 
 
+
                         // Public GETs but protected modifications
                         .requestMatchers(HttpMethod.GET, "/api/cars/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/motorcycles/**").permitAll()

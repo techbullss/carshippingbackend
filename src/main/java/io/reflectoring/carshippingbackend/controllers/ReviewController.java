@@ -12,7 +12,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/reviews")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "https://f-carshipping.com")
+@CrossOrigin(origins = {"https://f-carshipping.com", "https://www.f-carshipping.com"})
 public class ReviewController {
 
     private final ReviewService reviewService;

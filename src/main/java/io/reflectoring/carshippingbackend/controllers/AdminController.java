@@ -30,6 +30,7 @@ public class AdminController {
      *  GET ALL USERS (Admin Only)
      * ============================
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/users")
     public ResponseEntity<?> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
@@ -69,6 +70,7 @@ public class AdminController {
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
         return ResponseEntity.ok(convertToUserResponse(user));
     }
+
     @GetMapping("/users/email/{email}")
     public ResponseEntity<UserResponse> getUserByEmail(@PathVariable String email) {
         try {
@@ -86,6 +88,7 @@ public class AdminController {
      *  UPDATE USER
      * ============================
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/users/{id}")
 
     public ResponseEntity<UserResponse> updateUser(
@@ -101,6 +104,7 @@ public class AdminController {
      *  DELETE USER
      * ============================
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/users/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
@@ -109,9 +113,10 @@ public class AdminController {
 
     /**
      * ============================
-     * 🔹 UPDATE USER ROLES
+     *  UPDATE USER ROLES
      * ============================
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/users/roles/{id}")
     public ResponseEntity<UserResponse> updateUserRoles(
             @PathVariable Long id,
@@ -120,6 +125,7 @@ public class AdminController {
         User updatedUser = userService.updateUserRoles(id, request.getRole(), request.getAction());
         return ResponseEntity.ok(convertToUserResponse(updatedUser));
     }
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/users/approve/{userId}")
     public ResponseEntity<UserResponse> approveUser(@PathVariable Long userId) {
         try {

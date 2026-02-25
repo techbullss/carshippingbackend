@@ -10,17 +10,17 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequiredArgsConstructor
 @RequestMapping("/api/reviews")
+@RequiredArgsConstructor
 @CrossOrigin(origins = {"https://f-carshipping.com", "https://www.f-carshipping.com"})
 public class ReviewController {
 
     private final ReviewService reviewService;
-
-    // Create review (public)
     @PostMapping("/save")
-    public ResponseEntity<?> createReview() {
-        return ResponseEntity.ok("ggggggggg");
+    public ResponseEntity<?> createReview(
+            @RequestBody ReviewRequest request) {
+        reviewService.createReview(request);
+        return ResponseEntity.ok("saved");
     }
 
     // Get approved seller reviews

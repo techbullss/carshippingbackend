@@ -67,9 +67,9 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(auth);
 
-            logger.info("✅ Authenticated user: " + email);
+            logger.info(" Authenticated user: " + email);
         } else if (!isPublicEndpoint(path, method)) {
-            logger.error("❌ Blocking " + method + " " + path + " - No valid token");
+            logger.error(" Blocking " + method + " " + path + " - No valid token");
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Authentication required");
             return;
         }
@@ -111,7 +111,8 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                 path.startsWith("/api/motorcycles") ||
                 path.startsWith("/api/commercial") ||
                 path.startsWith("/api/admin/users") ||
-                path.startsWith("/api/images");
+                path.startsWith("/api/images")||
+                path.startsWith("/api/reviews");
     }
 
     private boolean isPublicEndpoint(String path, String method) {

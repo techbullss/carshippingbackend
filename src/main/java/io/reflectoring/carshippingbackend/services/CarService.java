@@ -127,11 +127,11 @@ public class CarService {
     }
 
     public Car update(Car car, MultipartFile[] images) throws IOException {
-        // 1️⃣ Fetch existing car
+        // 1 Fetch existing car
         Car existing = repo.findById(car.getId())
                 .orElseThrow(() -> new RuntimeException("Car not found with ID: " + car.getId()));
 
-        // 2️⃣ Update fields
+        // 2 Update fields
         existing.setBrand(car.getBrand());
         existing.setModel(car.getModel());
         existing.setYearOfManufacture(car.getYearOfManufacture());
@@ -152,7 +152,7 @@ public class CarService {
         existing.setFeatures(car.getFeatures());
         existing.setCustomSpecs(car.getCustomSpecs());
 
-        // 3️⃣ Prepare image URLs
+        // 3 Prepare image URLs
         List<String> updatedUrls = new ArrayList<>();
 
         // 3a️⃣ Keep URLs that were sent from frontend (still active)
@@ -160,7 +160,7 @@ public class CarService {
             updatedUrls.addAll(car.getImageUrls());
         }
 
-        // 4️⃣ Delete old images from Cloudinary that are no longer kept
+        // 4 Delete old images from Cloudinary that are no longer kept
         if (existing.getImageUrls() != null) {
             List<String> removedUrls = existing.getImageUrls().stream()
                     .filter(url -> car.getImageUrls() == null || !car.getImageUrls().contains(url))
@@ -180,7 +180,7 @@ public class CarService {
             }
         }
 
-        // 5️⃣ Upload new images
+        // 5 Upload new images
         if (images != null && images.length > 0) {
             for (MultipartFile f : images) {
                 String uniqueFileName = UUID.randomUUID() + "-" +

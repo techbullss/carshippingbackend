@@ -393,7 +393,7 @@ public class MotorcycleService {
 
     // Latest arrivals
     public List<MotorcycleResponseDTO> getLatestArrivals() {
-        Pageable pageable = PageRequest.of(0, 6, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(0, 4, Sort.by(Sort.Direction.DESC, "createdAt"));
         return repo.findAll(pageable).getContent().stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());

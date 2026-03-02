@@ -190,7 +190,7 @@ public class CarController {
 
 
             List<Car> cars = carRepo.findAll(
-                    PageRequest.of(0, 6, Sort.by(Sort.Direction.DESC, "id"))
+                    PageRequest.of(0, 4, Sort.by(Sort.Direction.DESC, "id"))
             ).getContent();
             return ResponseEntity.ok(cars);
         } catch (Exception e) {

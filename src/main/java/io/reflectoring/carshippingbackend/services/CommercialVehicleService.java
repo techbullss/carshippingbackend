@@ -192,7 +192,7 @@ public class CommercialVehicleService {
 
     // ------------------- Latest Arrivals -------------------
     public List<CommercialVehicleResponseDTO> getLatestArrivals() {
-        Pageable pageable = PageRequest.of(0, 6, Sort.by(Sort.Direction.DESC, "id"));
+        Pageable pageable = PageRequest.of(0, 4, Sort.by(Sort.Direction.DESC, "id"));
         return repo.findAll(pageable).getContent().stream().map(this::toDto).toList();
     }
 

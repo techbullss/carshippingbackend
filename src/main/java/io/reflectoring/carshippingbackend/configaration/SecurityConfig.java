@@ -11,6 +11,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -27,6 +28,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 @Autowired
@@ -116,7 +118,6 @@ public class SecurityConfig {
 
                         // Admin endpoints (extra restricted)
                         // Allow GET requests to users endpoint
-                        .requestMatchers(HttpMethod.GET, "/api/admin/users", "/api/admin/users/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/motorcycles/dashboard/**").authenticated()
 
 

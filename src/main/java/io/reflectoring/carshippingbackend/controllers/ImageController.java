@@ -1,6 +1,9 @@
 package io.reflectoring.carshippingbackend.controllers;
+
+import io.reflectoring.carshippingbackend.DTO.ImageDTO;
+import io.reflectoring.carshippingbackend.DTO.RotationResponse;
+import io.reflectoring.carshippingbackend.services.ImageRotationService;
 import io.reflectoring.carshippingbackend.services.ImageService;
-import io.reflectoring.carshippingbackend.tables.Image;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -8,149 +11,143 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/images")
-@CrossOrigin(origins = {"https://www.f-carshipping.com", "https://f-carshipping.com", "http://localhost:3000"})
+@CrossOrigin(origins = {
+        "https://www.f-carshipping.com",
+        "https://f-carshipping.com",
+        "http://localhost:3000"
+})
 @RequiredArgsConstructor
 public class ImageController {
 
-    private final ImageService imageService;
+    private final ImageService imageService;                 // Upload/Delete
+    private final ImageRotationService imageRotationService; // 48h Rotation Logic
 
-    // Get all images
+    /* =========================================================
+       GET ALL IMAGES
+       ========================================================= */
     @GetMapping
-    public ResponseEntity<Map<String, Object>> getAllImages() {
-        try {
-            List<Image> images = imageService.getAllImages();
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("images", images);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("success", false, "error", "Failed to fetch images"));
-        }
+    public ResponseEntity<?> getAllImages() {
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "images", imageRotationService.getAllImages()
+        ));
     }
 
-    // Get current image
+    /* =========================================================
+       GET CURRENT IMAGE (AUTO ROTATES IF 48H PASSED)
+       ========================================================= */
     @GetMapping("/current")
-    public ResponseEntity<Map<String, Object>> getCurrentImage() {
-        try {
-            Image currentImage = imageService.getCurrentImage();
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
+    public ResponseEntity<?> getCurrentImage() {
 
-            if (currentImage != null) {
-                response.put("image", currentImage);
-                // Calculate next rotation (48 hours from upload time)
-                LocalDateTime nextRotation = currentImage.getUploadedAt().plusHours(48);
-                response.put("nextRotation", nextRotation.toString());
-            } else {
-                response.put("image", null);
-                response.put("nextRotation", null);
-            }
+        RotationResponse rotation = imageRotationService.getCurrentImage();
 
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("success", false, "error", "Failed to get current image"));
-        }
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "image", rotation.getCurrentImage(),
+                "nextRotation", rotation.getNextRotation(),
+                "totalImages", rotation.getTotalImages(),
+                "currentIndex", rotation.getCurrentIndex()
+        ));
     }
 
-    // Upload image
+    /* =========================================================
+       UPLOAD IMAGE
+       ========================================================= */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Map<String, Object>> uploadImage(@RequestParam("image") MultipartFile file) {
+    public ResponseEntity<?> uploadImage(@RequestParam("image") MultipartFile file) {
         try {
+
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("success", false, "error", "File is empty"));
             }
 
-            if (!file.getContentType().startsWith("image/")) {
+            if (file.getContentType() == null ||
+                    !file.getContentType().startsWith("image/")) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("success", false, "error", "File must be an image"));
             }
 
-            Image uploadedImage = imageService.uploadImage(file);
+            imageService.uploadImage(file);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Image uploaded successfully");
-            response.put("image", "");
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Image uploaded successfully"
+            ));
 
-            return ResponseEntity.ok(response);
-        } catch (Error e) {
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("success", false, "error", "Failed to upload image"));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+                    .body(Map.of("success", false, "error", "Upload failed"));
         }
     }
 
-    // Delete image
+    /* =========================================================
+       DELETE IMAGE
+       ========================================================= */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> deleteImage(@PathVariable long id) {
+    public ResponseEntity<?> deleteImage(@PathVariable long id) {
         try {
             imageService.deleteImage(id);
-            return ResponseEntity.ok(Map.of("success", true, "message", "Image deleted successfully"));
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Image deleted successfully"
+            ));
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("success", false, "error", "Image not found"));
         }
     }
 
-    // Force rotate image
+    /* =========================================================
+       FORCE ROTATE (ADMIN TESTING)
+       ========================================================= */
     @PostMapping("/rotate")
-    public ResponseEntity<Map<String, Object>> rotateImage() {
-        try {
-            Image rotatedImage = imageService.rotateImage();
+    public ResponseEntity<?> forceRotate() {
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Image rotated successfully");
+        imageRotationService.forceRotate();
 
-            if (rotatedImage != null) {
-                response.put("image", rotatedImage);
-                LocalDateTime nextRotation = rotatedImage.getUploadedAt().plusHours(48);
-                response.put("nextRotation", nextRotation.toString());
-            }
+        RotationResponse rotation = imageRotationService.getCurrentImage();
 
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("success", false, "error", "Failed to rotate image"));
-        }
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Image rotated successfully",
+                "image", rotation.getCurrentImage(),
+                "nextRotation", rotation.getNextRotation()
+        ));
     }
 
-    // Get image stats
+    /* =========================================================
+       STATS
+       ========================================================= */
     @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> getStats() {
-        try {
-            Map<String, Object> stats = new HashMap<>();
-            stats.put("totalImages", imageService.getImageCount());
-            stats.put("rotationIntervalHours", 48);
+    public ResponseEntity<?> getStats() {
 
-            Image currentImage = imageService.getCurrentImage();
-            if (currentImage != null) {
-                stats.put("currentImage", currentImage.getOriginalName());
-                stats.put("nextRotation", currentImage.getUploadedAt().plusHours(48).toString());
-            }
+        RotationResponse rotation = imageRotationService.getCurrentImage();
 
-            return ResponseEntity.ok(Map.of("success", true, "data", stats));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("success", false, "error", "Failed to get stats"));
-        }
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "totalImages", rotation.getTotalImages(),
+                "currentIndex", rotation.getCurrentIndex(),
+                "nextRotation", rotation.getNextRotation(),
+                "rotationIntervalHours", 48
+        ));
     }
 
-    // Health check
+    /* =========================================================
+       HEALTH CHECK
+       ========================================================= */
     @GetMapping("/health")
-    public ResponseEntity<Map<String, String>> health() {
-        return ResponseEntity.ok(Map.of("status", "UP", "service", "image-rotation-service"));
+    public ResponseEntity<?> health() {
+        return ResponseEntity.ok(Map.of(
+                "status", "UP",
+                "service", "image-rotation-service"
+        ));
     }
 }

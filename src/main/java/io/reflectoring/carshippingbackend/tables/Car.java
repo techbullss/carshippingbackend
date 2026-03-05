@@ -64,6 +64,8 @@ public class Car {
 
     private String location;
     private String ownerType;
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String features;
     private String seller;
     private String roles;

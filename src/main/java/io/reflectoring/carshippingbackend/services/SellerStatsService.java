@@ -1,0 +1,38 @@
+package io.reflectoring.carshippingbackend.services;
+
+import io.reflectoring.carshippingbackend.DTO.SellerStatsDTO;
+import io.reflectoring.carshippingbackend.repository.CarRepository;
+import io.reflectoring.carshippingbackend.repository.ReviewRepositorySeller;
+import io.reflectoring.carshippingbackend.tables.User;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+@AllArgsConstructor
+
+public class SellerStatsService {
+
+    private final CarRepository carRepository;
+    private final ReviewRepositorySeller reviewRepository;
+    private final UserService userService;
+
+    public SellerStatsDTO getSellerStats(String email) {
+
+        User seller = userService.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Seller not found"));
+
+        long listings = carRepository.countBySellerEmail(email);
+
+        Double rating = reviewRepository.getAverageRating(seller.getId());
+        Long reviews = reviewRepository.getReviewCount(seller.getId());
+
+        return SellerStatsDTO.builder()
+                .totalListings(listings)
+                .rating(rating != null ? rating : 0)
+                .reviewCount(reviews != null ? reviews : 0)
+                .build();
+    }
+}

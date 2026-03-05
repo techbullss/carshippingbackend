@@ -27,7 +27,7 @@ public class ReviewSeller {
 
     private String reviewerName;
 
-    private boolean approved = false;   // Admin must approve
+    private boolean approved = true;   // Admin must approve
 
     private LocalDateTime createdAt;
 }

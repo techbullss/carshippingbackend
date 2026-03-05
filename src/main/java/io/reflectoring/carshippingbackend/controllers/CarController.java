@@ -1,10 +1,13 @@
 package io.reflectoring.carshippingbackend.controllers;
 
+import io.reflectoring.carshippingbackend.DTO.SellerStatsDTO;
 import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.configaration.CustomUserDetails;
 import io.reflectoring.carshippingbackend.repository.CarRepository;
 import io.reflectoring.carshippingbackend.services.CarService;
+import io.reflectoring.carshippingbackend.services.SellerStatsService;
 import io.reflectoring.carshippingbackend.tables.Car;
+import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +29,7 @@ import java.util.Set;
 @RestController
 @CrossOrigin(origins = "https://f-carshipping.com") // ADD allowCredentials
 @RequestMapping("/api/cars")
+@AllArgsConstructor
 public class CarController {
 
     @Autowired
@@ -33,9 +37,8 @@ public class CarController {
 
     private final CarService service;
 
-    public CarController(CarService service) {
-        this.service = service;
-    }
+    private final SellerStatsService sellerStatsService;
+
 
     // ------------------- Search / List -------------------
     @GetMapping
@@ -197,7 +200,13 @@ public class CarController {
             return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
     }
+    @GetMapping("/stats/{email}")
+    public ResponseEntity<?> getSellerStats(@PathVariable String email) {
 
+        SellerStatsDTO stats = sellerStatsService.getSellerStats(email);
+
+        return ResponseEntity.ok(stats);
+    }
     // ------------------- Delete -------------------
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteCar(@PathVariable Long id, Authentication authentication) { // ADD Authentication

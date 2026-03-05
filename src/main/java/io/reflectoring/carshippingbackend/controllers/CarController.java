@@ -29,7 +29,7 @@ import java.util.Set;
 @RestController
 @CrossOrigin(origins = "https://f-carshipping.com") // ADD allowCredentials
 @RequestMapping("/api/cars")
-@AllArgsConstructor
+
 public class CarController {
 
     @Autowired
@@ -38,6 +38,11 @@ public class CarController {
     private final CarService service;
 
     private final SellerStatsService sellerStatsService;
+
+    public CarController(CarService service, SellerStatsService sellerStatsService) {
+        this.service = service;
+        this.sellerStatsService = sellerStatsService;
+    }
 
 
     // ------------------- Search / List -------------------

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-@AllArgsConstructor
+
 
 public class SellerStatsService {
 

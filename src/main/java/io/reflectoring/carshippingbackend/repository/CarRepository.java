@@ -42,6 +42,7 @@ AND
     Page<Car> searchBySeller(@Param("filters") Map<String, String> filters, Pageable pageable, @Param("email") String email);
 
     Page<Car> findByStatus(String status, Pageable pageable);
-
+    @Query("SELECT c FROM Car c WHERE c.status = 'approved'")
+    List<Car> findByStatusApproved(Pageable pageable);
 }
 

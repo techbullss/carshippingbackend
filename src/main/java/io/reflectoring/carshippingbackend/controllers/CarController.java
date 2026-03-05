@@ -193,13 +193,11 @@ public class CarController {
 
     // ------------------- Latest -------------------
     @GetMapping("/latest")
-    public ResponseEntity<?> getLatestArrivals() { // ADD Authentication
+    public ResponseEntity<?> getLatestArrivals() {
         try {
-
-
-            List<Car> cars = carRepo.findAll(
+            List<Car> cars = carRepo.findByStatusApproved(
                     PageRequest.of(0, 4, Sort.by(Sort.Direction.DESC, "id"))
-            ).getContent();
+            );
             return ResponseEntity.ok(cars);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Error: " + e.getMessage());

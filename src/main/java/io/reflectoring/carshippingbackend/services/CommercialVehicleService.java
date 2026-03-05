@@ -68,6 +68,8 @@ public class CommercialVehicleService {
         dto.setFeatures(vehicle.getFeatures());
         dto.setCustomSpecs(vehicle.getCustomSpecs());
         dto.setImageUrls(vehicle.getImageUrls());
+        dto.setSeller(vehicle.getSeller());
+
         return dto;
     }
 

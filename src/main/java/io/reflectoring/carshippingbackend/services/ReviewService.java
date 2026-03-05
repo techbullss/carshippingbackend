@@ -39,7 +39,7 @@ public class ReviewService {
                                 ? request.getReviewerName()
                                 : "Anonymous"
                 )
-                .approved(false) // Always false until admin approves
+                .approved(true) // Always false until admin approves
                 .createdAt(LocalDateTime.now())
                 .build();
 

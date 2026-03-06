@@ -16,7 +16,7 @@ public interface MotorcycleRepository extends
         JpaSpecificationExecutor<Motorcycle> {
 
     // ============= DERIVED QUERIES =============
-    long countBySeller(String email);
+    long countByOwner(String email);
 
     Page<Motorcycle> findByStatus(String status, Pageable pageable);
     Page<Motorcycle> findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndStatus(

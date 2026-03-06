@@ -60,7 +60,7 @@ public class SellerStatsService {
         User seller = userService.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Seller not found"));
 
-        long listings = motorcyclerespository.countBySeller(email);
+        long listings = motorcyclerespository.countByOwner(email);
 
         Double rating = reviewRepository.getAverageRating(seller.getId());
         Long reviews = reviewRepository.getReviewCount(seller.getId());

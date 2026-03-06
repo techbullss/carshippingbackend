@@ -175,40 +175,58 @@ public class AuthController {
             @RequestBody @Valid LoginRequest request,
             HttpServletResponse response) {
 
-        String token = authService.authenticateUser(request);
+        Optional<User> userOptional = userService.findByEmail(request.getEmail());
 
-        User user = userService.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (userOptional.isEmpty()) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(new AuthResponse(
+                            "Invalid email or password",
+                            null, null, null, null, null, null
+                    ));
+        }
+
+        User user = userOptional.get();
+
         if (!"APPROVED".equalsIgnoreCase(user.getStatus())) {
             return ResponseEntity
                     .status(HttpStatus.FORBIDDEN)
                     .body(new AuthResponse(
-                            "Your account is not Approved. Please email for more information.info@f-carshipping.com",
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
+                            "Your account is not approved. Please contact info@f-carshipping.com",
+                            null, null, null, null, null, null
                     ));
         }
-        Set<String> roleNames = user.getRoles()
-                .stream()
-                .map(Enum::name)
-                .collect(Collectors.toSet());
-        setAuthCookie(response, token);
 
-        AuthResponse authResponse = new AuthResponse(
-                "Login successful",
-                user.getId().toString(),
-                user.getEmail(),
-                user.getFirstName(),
-                user.getLastName(),
-                roleNames,
-                user.getProfilePicture()
-        );
+        try {
+            String token = authService.authenticateUser(request);
 
-        return ResponseEntity.ok(authResponse);
+            Set<String> roleNames = user.getRoles()
+                    .stream()
+                    .map(Enum::name)
+                    .collect(Collectors.toSet());
+
+            setAuthCookie(response, token);
+
+            return ResponseEntity.ok(
+                    new AuthResponse(
+                            "Login successful",
+                            user.getId().toString(),
+                            user.getEmail(),
+                            user.getFirstName(),
+                            user.getLastName(),
+                            roleNames,
+                            user.getProfilePicture()
+                    )
+            );
+
+        } catch (Exception e) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(new AuthResponse(
+                            "Invalid email or password",
+                            null, null, null, null, null, null
+                    ));
+        }
     }
 
     /**

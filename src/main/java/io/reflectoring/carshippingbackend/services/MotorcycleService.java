@@ -68,6 +68,7 @@ public class MotorcycleService {
                 .description(motorcycle.getDescription())
                 .createdAt(motorcycle.getCreatedAt())
                 .updatedAt(motorcycle.getUpdatedAt())
+                .mileageKm(motorcycle.getMileageKm())
                 .build();
     }
 

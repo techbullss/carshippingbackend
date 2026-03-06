@@ -29,7 +29,7 @@ public class Motorcycle {
     private String location;
     private String owner;
     private Integer year;
-
+ private  Integer mileageKm;
     // FIX: Proper collection mapping for features
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(

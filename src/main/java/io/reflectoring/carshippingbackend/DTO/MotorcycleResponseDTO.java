@@ -25,5 +25,6 @@ public class MotorcycleResponseDTO {
     private LocalDateTime updatedAt;
     private List<String> features;
     private Integer year;
+    private  Integer mileageKm;
 }
 

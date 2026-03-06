@@ -86,6 +86,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/auxiliary/**").permitAll()
                         .requestMatchers("/api/reviews/save").permitAll()
+                        .requestMatchers("/api/admin/users/email/{email}").permitAll()
 
 
 

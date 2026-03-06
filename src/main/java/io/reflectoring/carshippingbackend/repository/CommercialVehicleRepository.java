@@ -91,4 +91,6 @@ public interface CommercialVehicleRepository extends
     List<CommercialVehicle> findByBrandContainingIgnoreCaseOrModelContainingIgnoreCaseAndIdNot(
             String brand, String model, Long excludeId
     );
+    long countBySeller(String email);
+
 }

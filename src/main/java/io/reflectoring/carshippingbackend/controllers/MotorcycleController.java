@@ -2,7 +2,9 @@ package io.reflectoring.carshippingbackend.controllers;
 
 import io.reflectoring.carshippingbackend.DTO.MotorcycleRequestDTO;
 import io.reflectoring.carshippingbackend.DTO.MotorcycleResponseDTO;
+import io.reflectoring.carshippingbackend.DTO.SellerStatsDTO;
 import io.reflectoring.carshippingbackend.services.MotorcycleService;
+import io.reflectoring.carshippingbackend.services.SellerStatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
@@ -25,6 +27,8 @@ import java.util.Map;
 public class MotorcycleController {
 
     private final MotorcycleService service;
+    private final SellerStatsService sellerStatsService;
+
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> create(
@@ -58,7 +62,13 @@ public class MotorcycleController {
             ));
         }
     }
+    @GetMapping("/stats/{email}")
+    public ResponseEntity<?> getSellerStats(@PathVariable String email) {
 
+        SellerStatsDTO stats = sellerStatsService.getSellerStatsMotorcycle(email);
+
+        return ResponseEntity.ok(stats);
+    }
     // PUBLIC WEBSITE ENDPOINT - Only approved vehicles
     @GetMapping("/public")
     public ResponseEntity<?> listPublic(

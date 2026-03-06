@@ -1,10 +1,12 @@
 package io.reflectoring.carshippingbackend.controllers;
 
+import io.reflectoring.carshippingbackend.DTO.SellerStatsDTO;
 import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.configaration.CustomUserDetails;
 import io.reflectoring.carshippingbackend.repository.CommercialVehicleRepository;
 import io.reflectoring.carshippingbackend.services.CommercialVehicleService;
 import io.reflectoring.carshippingbackend.services.CommercialVehicleSpecification;
+import io.reflectoring.carshippingbackend.services.SellerStatsService;
 import io.reflectoring.carshippingbackend.tables.Car;
 import io.reflectoring.carshippingbackend.tables.CommercialVehicle;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleDTO;
@@ -37,6 +39,7 @@ public class CommercialVehicleController {
 
     private final CommercialVehicleService service;
     private final CommercialVehicleRepository repo;
+    private final SellerStatsService sellerStatsService;
 
     // ------------------- Search / List -------------------
     // ------------------- SIMPLER VERSION -------------------
@@ -94,6 +97,13 @@ public class CommercialVehicleController {
         } catch (Exception e) {
             return ResponseEntity.status(404).body("Vehicle not found with id " + id);
         }
+    }
+    @GetMapping("/stats/{email}")
+    public ResponseEntity<?> getSellerStats(@PathVariable String email) {
+
+        SellerStatsDTO stats = sellerStatsService.getSellerStatsCommercial(email);
+
+        return ResponseEntity.ok(stats);
     }
 
     // ------------------- Update -------------------

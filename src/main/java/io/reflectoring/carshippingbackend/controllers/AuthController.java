@@ -133,7 +133,9 @@ public class AuthController {
     }
 
     @PostMapping("/signup-guest")
-    public ResponseEntity<?> signupGuest(@RequestBody @Valid SignupRequest request) {
+    public ResponseEntity<?> signupGuest(
+            @RequestBody SignupRequest request,
+            HttpServletResponse response) {
 
         try {
             Set<Role> roles = new HashSet<>();
@@ -155,11 +157,42 @@ public class AuthController {
             // Register user
             AuthResponse authResponse = authService.registerUser(request, roles);
 
-            emailService.sendVerificationEmail(request.getEmail(), verificationCode);
+            // Get the registered user
+            Optional<User> userOptional = userService.findByEmail(request.getEmail());
+            if (userOptional.isEmpty()) {
+                throw new RuntimeException("User registration failed");
+            }
 
-            return ResponseEntity.ok("Guest registered successfully. Please verify your email.");
+            User user = userOptional.get();
+
+            // Generate JWT token
+            String token = jwtUtil.generateToken(user.getEmail(), user.getRoles());
+
+            // Set cookie with the token
+            setAuthCookie(response, token);
+
+            // Send verification email (optional - you might want to skip for guests)
+
+            // Return success response with user info and token in cookie
+            Set<String> roleNames = user.getRoles()
+                    .stream()
+                    .map(Enum::name)
+                    .collect(Collectors.toSet());
+
+            AuthResponse successResponse = new AuthResponse(
+                    "Guest registered successfully",
+                    user.getId().toString(),
+                    user.getEmail(),
+                    user.getFirstName(),
+                    user.getLastName(),
+                    roleNames,
+                    user.getProfilePicture()
+            );
+
+            return ResponseEntity.ok(successResponse);
 
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest()
                     .body(new AuthResponse("Registration failed: " + e.getMessage()));
         }

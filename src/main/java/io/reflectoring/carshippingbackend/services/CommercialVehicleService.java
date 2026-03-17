@@ -262,11 +262,20 @@ public class CommercialVehicleService {
 
         switch (role) {
             case "ADMIN":
+                // Admins can see all vehicles (including pending/rejected)
                 return searchWithSpecifications(allParams, pageable);
+
             case "SELLER":
+                // Sellers can see their own vehicles + public approved vehicles
                 return searchBySellerWithSpecifications(allParams, currentUserEmail, pageable);
-            default: // PUBLIC
-                return searchPublicWithSpecifications(allParams, pageable);
+
+            case "GUEST":
+                // GUESTS should NOT see any vehicles
+                // Return empty page with proper message
+                return new PageImpl<>(new ArrayList<>(), pageable, 0);
+
+            default:
+                throw new RuntimeException("Unauthorized access");
         }
     }
 

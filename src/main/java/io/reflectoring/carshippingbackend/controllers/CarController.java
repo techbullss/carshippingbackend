@@ -89,6 +89,7 @@ public class CarController {
 
 
     @PostMapping("/dashboard")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
     public ResponseEntity<?> dashboard(
             @RequestParam Map<String, String> allParams,
             @RequestParam(defaultValue = "0") int page,
@@ -117,6 +118,7 @@ public class CarController {
     }
     // ------------------- Create -------------------
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
     public ResponseEntity<?> create(
             @RequestPart("car") Car car,
             @RequestPart(value = "images", required = false) MultipartFile[] images,
@@ -154,6 +156,7 @@ public class CarController {
 
     // ------------------- Update -------------------
     @PutMapping(value="/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
     public ResponseEntity<?> updateCar(
             @PathVariable Long id,
             @RequestPart("car") Car car,
@@ -212,6 +215,7 @@ public class CarController {
     }
     // ------------------- Delete -------------------
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
     public ResponseEntity<?> deleteCar(@PathVariable Long id, Authentication authentication) { // ADD Authentication
         try {
             if (authentication == null || !authentication.isAuthenticated()) {

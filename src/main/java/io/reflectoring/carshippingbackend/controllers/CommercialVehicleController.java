@@ -73,6 +73,7 @@ public class CommercialVehicleController {
     }
     // ------------------- Create -------------------
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
     public ResponseEntity<?> create(
             @RequestPart("vehicle") CommercialVehicleDTO dto,
             @RequestPart(value = "images", required = false) List<MultipartFile> images,
@@ -108,6 +109,7 @@ public class CommercialVehicleController {
 
     // ------------------- Update -------------------
     @PutMapping(value="/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
     public ResponseEntity<?> update(
             @PathVariable Long id,
             @RequestPart("vehicle") CommercialVehicleDTO dto,
@@ -121,6 +123,7 @@ public class CommercialVehicleController {
         return ResponseEntity.ok(service.updateVehicle(id, dto));
     }
     @PostMapping("/dashboard")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
     public ResponseEntity<?> dashboard(
             @RequestBody Map<String, Object> payload
     ) {
@@ -175,6 +178,7 @@ public class CommercialVehicleController {
 
     // ------------------- Delete -------------------
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
     public ResponseEntity<?> delete(@PathVariable Long id, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).body("Authentication required");

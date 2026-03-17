@@ -11,6 +11,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -110,6 +111,7 @@ public class MotorcycleController {
 
     // DASHBOARD ENDPOINT - Role-based access (Admin/Seller)
     @GetMapping("/dashboard")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
     public ResponseEntity<?> listDashboard(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -169,6 +171,7 @@ public class MotorcycleController {
 
     // UPDATE MOTORCYCLE
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
     public ResponseEntity<?> update(
             @PathVariable Long id,
             @RequestPart("motorcycle") MotorcycleRequestDTO dto,
@@ -227,6 +230,7 @@ public class MotorcycleController {
 
     // DELETE MOTORCYCLE
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SELLER')")
     public ResponseEntity<?> delete(@PathVariable Long id) {
         try {
             service.deleteMotorcycle(id);
@@ -256,6 +260,7 @@ public class MotorcycleController {
         return ResponseEntity.ok(service.getDistinctBrandsWithCount());
     }
     @PutMapping("/{id}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MotorcycleResponseDTO> approveMotorcycle(
             @PathVariable Long id) {
 
@@ -265,6 +270,7 @@ public class MotorcycleController {
 
 
     @PutMapping("/{id}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MotorcycleResponseDTO> rejectMotorcycle(
             @PathVariable Long id) {
 

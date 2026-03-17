@@ -286,9 +286,8 @@ public class MotorcycleService {
             case "SELLER":
                 results = searchBySellerWithSpecifications(allParams, currentUserEmail, pageable);
                 break;
-            default: // PUBLIC or unauthenticated
-                results = searchPublicWithSpecifications(allParams, pageable);
-                break;
+            default:
+                throw new RuntimeException("Unauthorized access");
         }
 
         return results.map(this::toDto);

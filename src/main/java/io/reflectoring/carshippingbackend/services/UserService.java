@@ -134,7 +134,6 @@ public class UserService implements UserDetailsService {
         if (request.getEstimatedShippingDate() != null) user.setEstimatedShippingDate(request.getEstimatedShippingDate());
 
         // Update document info
-        if (request.getIdNumber() != null) user.setIdNumber(request.getIdNumber());
 
         // Update company fields if provided
         if (request.getSellerType() != null) user.setSellerType(request.getSellerType());

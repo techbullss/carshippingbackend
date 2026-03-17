@@ -143,8 +143,7 @@ public class AdminController {
                 .lastName(user.getLastName())
                 .email(user.getEmail())
                 .phone(user.getPhone())
-                .dateOfBirth(user.getDateOfBirth())
-                .gender(user.getGender())
+
                 .streetAddress(user.getStreetAddress())
                 .city(user.getCity())
                 .state(user.getState())

@@ -40,11 +40,6 @@ public class User {
     @Size(max = 15)
     private String phone;
 
-    @Column(name = "date_of_birth")
-    private String dateOfBirth;
-
-    private String gender;
-
     @NotBlank
     @Size(min = 8)
     private String password;
@@ -88,6 +83,7 @@ public class User {
 
     @Column(name = "destination_country")
     private String destinationCountry = "Kenya";
+
     @Column(name = "profile_picture")
     private String profilePicture;
 
@@ -100,24 +96,63 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "role", length = 20)
     private Set<Role> roles = new HashSet<>();
+
     @Column(name = "verification_code")
     private String verificationCode;
 
     @Column(name = "email_verified")
     private boolean emailVerified = false;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
     @Column(name = "status")
     private String status;
+
     @Column(length = 500)
     private String passportPhoto;
 
     @Column(length = 500)
     private String govtId;
-    @Column(name="idNumber")
+
+    @Column(name = "id_number")
     private String idNumber;
+
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // NEW: Seller type field
+    @Column(name = "seller_type")
+    private String sellerType; // "individual" or "company"
+
+    // NEW: Company fields
+    @Column(name = "company_name")
+    private String companyName;
+
+    @Column(name = "company_registration_number")
+    private String companyRegistrationNumber;
+
+    @Column(name = "kra_pin")
+    private String kraPin;
+
+    @Column(name = "business_permit_number")
+    private String businessPermitNumber;
+
+    @Column(name = "company_address")
+    private String companyAddress;
+
+    // NEW: Company document URLs
+    @Column(name = "certificate_of_incorporation", length = 500)
+    private String certificateOfIncorporation;
+
+    @Column(name = "kra_pin_certificate", length = 500)
+    private String kraPinCertificate;
+
+    @Column(name = "business_permit", length = 500)
+    private String businessPermit;
+
+    @Column(name = "trademark_image", length = 500)
+    private String trademarkImage;
 
     @PrePersist
     protected void onCreate() {

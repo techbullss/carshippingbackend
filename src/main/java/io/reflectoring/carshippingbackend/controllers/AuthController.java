@@ -53,15 +53,15 @@ public class AuthController {
     @Value("${app.jwt.expiration}")
     private Long jwtExpiration;
 
-
-    @PostMapping(value = "/signup", consumes =MediaType.MULTIPART_FORM_DATA_VALUE )
+    @PostMapping(value = "/signup", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> signup(
-            @RequestPart("data")  SignupRequest request,
+            @RequestPart("data") SignupRequest request,
             @RequestPart(value = "govtId", required = false) MultipartFile govtId,
-            @RequestPart(value = "passportPhoto", required = false) MultipartFile passportPhoto
-            ) {
-
-
+            @RequestPart(value = "passportPhoto", required = false) MultipartFile passportPhoto,
+            @RequestPart(value = "certificateOfIncorporation", required = false) MultipartFile certificateOfIncorporation,
+            @RequestPart(value = "kraPinCertificate", required = false) MultipartFile kraPinCertificate,
+            @RequestPart(value = "businessPermit", required = false) MultipartFile businessPermit,
+            @RequestPart(value = "trademarkImage", required = false) MultipartFile trademarkImage) {
 
         try {
             Set<Role> roles = new HashSet<>();
@@ -77,39 +77,48 @@ public class AuthController {
                     roles.clear();
                     roles.add(givenRole);
                 } catch (IllegalArgumentException e) {
-                    System.out.println("⚠ Invalid role provided: " + request.getRole() + ". Defaulting to USER.");
+                    System.out.println("⚠ Invalid role provided: " + request.getRole() + ". Defaulting to SELLER.");
                 }
             }
 
-            //  Upload files (if present)
-            String govtIdUrl = null;
-            String passportPhotoUrl = null;
-
-            if (govtId != null && !govtId.isEmpty()) {
-                govtIdUrl = cloudStorageService.uploadFile(govtId, "user-ids");
+            // Upload files based on seller type
+            if ("individual".equals(request.getSellerType())) {
+                // Individual seller documents
+                if (govtId != null && !govtId.isEmpty()) {
+                    request.setGovtId(cloudStorageService.uploadFile(govtId, "user-ids"));
+                }
+                if (passportPhoto != null && !passportPhoto.isEmpty()) {
+                    request.setPassportPhoto(cloudStorageService.uploadFile(passportPhoto, "passport-photos"));
+                }
+            } else if ("company".equals(request.getSellerType())) {
+                // Company seller documents
+                if (certificateOfIncorporation != null && !certificateOfIncorporation.isEmpty()) {
+                    request.setCertificateOfIncorporation(cloudStorageService.uploadFile(certificateOfIncorporation, "company-docs/certificates"));
+                }
+                if (kraPinCertificate != null && !kraPinCertificate.isEmpty()) {
+                    request.setKraPinCertificate(cloudStorageService.uploadFile(kraPinCertificate, "company-docs/kra-pins"));
+                }
+                if (businessPermit != null && !businessPermit.isEmpty()) {
+                    request.setBusinessPermit(cloudStorageService.uploadFile(businessPermit, "company-docs/business-permits"));
+                }
+                if (trademarkImage != null && !trademarkImage.isEmpty()) {
+                    request.setTrademarkImage(cloudStorageService.uploadFile(trademarkImage, "company-logos"));
+                }
             }
-            if (passportPhoto != null && !passportPhoto.isEmpty()) {
-                passportPhotoUrl = cloudStorageService.uploadFile(passportPhoto, "passport-photos");
-            }
 
-            request.setGovtId(govtIdUrl);
-            request.setPassportPhoto(passportPhotoUrl);
-
-            //  Register user
+            // Register user
             AuthResponse authResponse = authService.registerUser(request, roles);
             emailService.sendVerificationEmail(request.getEmail(), verificationCode);
 
-            //  Generate JWT & cookie
-
-
-            System.out.println(" USER REGISTERED SUCCESSFULLY: " + request.getEmail());
-            return ResponseEntity.ok("User register watting for approval");
+            System.out.println(" USER REGISTERED SUCCESSFULLY: " + request.getEmail() + " as " + request.getSellerType());
+            return ResponseEntity.ok("User registered waiting for approval");
 
         } catch (Exception e) {
             System.err.println(" SIGNUP ERROR: " + e.getMessage());
             return ResponseEntity.badRequest().body(new AuthResponse("Registration failed: " + e.getMessage()));
         }
     }
+
     @PostMapping("/verify-code")
     public ResponseEntity<?> verifyEmail(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -122,6 +131,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
+
     @PostMapping("/signup-guest")
     public ResponseEntity<?> signupGuest(@RequestBody @Valid SignupRequest request) {
 
@@ -140,6 +150,7 @@ public class AuthController {
             // No documents needed
             request.setGovtId(null);
             request.setPassportPhoto(null);
+            request.setSellerType("individual"); // Default to individual for guests
 
             // Register user
             AuthResponse authResponse = authService.registerUser(request, roles);
@@ -153,6 +164,7 @@ public class AuthController {
                     .body(new AuthResponse("Registration failed: " + e.getMessage()));
         }
     }
+
     @PostMapping("/resend-code")
     public ResponseEntity<?> resendVerificationCode(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -273,7 +285,6 @@ public class AuthController {
         return ResponseEntity.ok(authResponse);
     }
 
-
     /**
      * ============================
      *  HELPER METHODS
@@ -299,8 +310,8 @@ public class AuthController {
 
         ResponseCookie cookie = ResponseCookie.from(cookieName, token)
                 .httpOnly(true)
-                .secure(!isLocalhost) // true in production, false locally
-                .sameSite(isLocalhost ? "Lax" : "None") // must be None for cross-site (Vercel → DuckDNS)
+                .secure(!isLocalhost)
+                .sameSite(isLocalhost ? "Lax" : "None")
                 .domain(cookieDomain)
                 .path("/")
                 .maxAge(Duration.ofMillis(jwtExpiration))
@@ -309,7 +320,6 @@ public class AuthController {
         response.addHeader("Set-Cookie", cookie.toString());
     }
 
-
     private void clearAuthCookie(HttpServletResponse response) {
         boolean isLocalhost = false;
         String backendDomain = "api.f-carshipping.com";
@@ -317,15 +327,16 @@ public class AuthController {
 
         ResponseCookie cookie = ResponseCookie.from(cookieName, "")
                 .httpOnly(true)
-                .secure(!isLocalhost) // Must match login cookie settings
-                .sameSite(isLocalhost ? "Lax" : "None") // Must match login cookie settings
-                .domain(cookieDomain) // Must match login cookie settings
+                .secure(!isLocalhost)
+                .sameSite(isLocalhost ? "Lax" : "None")
+                .domain(cookieDomain)
                 .path("/")
-                .maxAge(0) // Set to 0 to expire immediately
+                .maxAge(0)
                 .build();
 
         response.addHeader("Set-Cookie", cookie.toString());
     }
+
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -344,20 +355,18 @@ public class AuthController {
                 .build();
         passwordResetTokenRepository.save(resetToken);
 
-        // Build reset link (frontend route)
         String resetLink = "https://f-carshipping.com/ResetPasswordPage?token=" + token;
 
-        // Use your existing email service
         String subject = "Password Reset Request - FCarShipping";
         String body = "Hello " + user.getFirstName() + ",\n\n"
                 + "We received a request to reset your password.\n"
                 + "Please click the link below to set a new password:\n"
                 + resetLink + "\n\n"
-                + "If you didn’t request this, you can safely ignore this email.\n\n"
+                + "If you didn't request this, you can safely ignore this email.\n\n"
                 + "Best regards,\nFCarShipping Support Team";
 
         try {
-            emailService.sendVerificationEmail(email, body); // ✅ use your existing method
+            emailService.sendVerificationEmail(email, body);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to send email: " + e.getMessage());

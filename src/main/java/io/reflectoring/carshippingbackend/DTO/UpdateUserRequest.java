@@ -20,4 +20,10 @@ public class UpdateUserRequest {
     private String shippingFrequency;
     private String vehicleType;
     private String estimatedShippingDate;
+    private String sellerType;
+    private String companyName;
+    private String companyRegistrationNumber;
+    private String kraPin;
+    private String businessPermitNumber;
+    private String companyAddress;
 }

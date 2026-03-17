@@ -23,10 +23,10 @@ public class AuthService {
     private final UserService userService;
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
-    private final  EmailService emailService;
+    private final EmailService emailService;
 
     public AuthResponse registerUser(SignupRequest signupRequest, Set<Role> roles) {
-        User user = userService.createUser(signupRequest,roles);
+        User user = userService.createUser(signupRequest, roles);
         Set<String> roleNames = user.getRoles()
                 .stream()
                 .map(Enum::name)
@@ -55,13 +55,10 @@ public class AuthService {
             throw new RuntimeException("Invalid password");
         }
 
-        //  Directly get roles (already Set<Role>)
         Set<Role> roles = user.getRoles();
-
 
         return jwtUtil.generateToken(user.getEmail(), roles);
     }
-
 
     public Optional<User> validateToken(String token) {
         try {
@@ -74,11 +71,11 @@ public class AuthService {
             return Optional.empty();
         }
     }
+
     private String generateVerificationCode() {
         return String.format("%06d", new Random().nextInt(999999));
     }
 
-    //  Verify code
     public boolean verifyEmail(String email, String code) {
         Optional<User> userOpt = userService.findByEmail(email);
         if (userOpt.isEmpty()) throw new RuntimeException("User not found");
@@ -99,7 +96,6 @@ public class AuthService {
         return true;
     }
 
-    //  Resend code
     public void resendVerificationCode(String email) {
         Optional<User> userOpt = userService.findByEmail(email);
         if (userOpt.isEmpty()) throw new RuntimeException("User not found");

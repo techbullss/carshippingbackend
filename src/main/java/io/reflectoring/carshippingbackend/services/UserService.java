@@ -30,40 +30,67 @@ public class UserService implements UserDetailsService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final Cloudinary cloudinary;
-
     private final EmailService emailService;
+
     public User createUser(SignupRequest signupRequest, Set<Role> roles) {
         if (userRepository.existsByEmail(signupRequest.getEmail())) {
             throw new RuntimeException("Email is already in use!");
         }
 
         User user = new User();
+
+        // Basic info
         user.setFirstName(signupRequest.getFirstName());
         user.setLastName(signupRequest.getLastName());
         user.setEmail(signupRequest.getEmail());
         user.setPhone(signupRequest.getPhone());
-        user.setDateOfBirth(signupRequest.getDateOfBirth());
-        user.setGender(signupRequest.getGender());
         user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
+
+        // Address
         user.setStreetAddress(signupRequest.getStreetAddress());
         user.setCity(signupRequest.getCity());
         user.setState(signupRequest.getState());
         user.setPostalCode(signupRequest.getPostalCode());
         user.setCountry(signupRequest.getCountry());
+
+        // Documents
+        user.setIdNumber(signupRequest.getIdNumber());
+        user.setGovtId(signupRequest.getGovtId());
+        user.setPassportPhoto(signupRequest.getPassportPhoto());
+
+        // Preferences
         user.setPreferredCommunication(signupRequest.getPreferredCommunication());
         user.setNewsletter(signupRequest.isNewsletter());
+
+        // Vehicle shipping
         user.setShippingFrequency(signupRequest.getShippingFrequency());
         user.setVehicleType(signupRequest.getVehicleType());
         user.setEstimatedShippingDate(signupRequest.getEstimatedShippingDate());
         user.setSourceCountry(signupRequest.getSourceCountry());
         user.setDestinationCountry(signupRequest.getDestinationCountry());
+
+        // Account status
         user.setStatus(signupRequest.getStatus());
-        user.setPassportPhoto(signupRequest.getPassportPhoto());
-        user.setIdNumber(signupRequest.getIdNumber());
-        user.setGovtId(signupRequest.getGovtId());
         user.setRoles(roles);
         user.setVerificationCode(signupRequest.getVerificationCode());
         user.setEmailVerified(signupRequest.getEmailVerified());
+
+        // NEW: Seller type
+        user.setSellerType(signupRequest.getSellerType());
+
+        // NEW: Company fields
+        user.setCompanyName(signupRequest.getCompanyName());
+        user.setCompanyRegistrationNumber(signupRequest.getCompanyRegistrationNumber());
+        user.setKraPin(signupRequest.getKraPin());
+        user.setBusinessPermitNumber(signupRequest.getBusinessPermitNumber());
+        user.setCompanyAddress(signupRequest.getCompanyAddress());
+
+        // NEW: Company document URLs
+        user.setCertificateOfIncorporation(signupRequest.getCertificateOfIncorporation());
+        user.setKraPinCertificate(signupRequest.getKraPinCertificate());
+        user.setBusinessPermit(signupRequest.getBusinessPermit());
+        user.setTrademarkImage(signupRequest.getTrademarkImage());
+
         return userRepository.save(user);
     }
 
@@ -75,37 +102,47 @@ public class UserService implements UserDetailsService {
         return userRepository.findById(id);
     }
 
-
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-        return new CustomUserDetails(user); // wrap entity inside CustomUserDetails
+        return new CustomUserDetails(user);
     }
-
-
 
     public User updateUser(Long id, UpdateUserRequest request) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Update fields if provided in request
+        // Update basic fields if provided
         if (request.getFirstName() != null) user.setFirstName(request.getFirstName());
         if (request.getLastName() != null) user.setLastName(request.getLastName());
         if (request.getEmail() != null) user.setEmail(request.getEmail());
         if (request.getPhone() != null) user.setPhone(request.getPhone());
-        if (request.getDateOfBirth() != null) user.setDateOfBirth(request.getDateOfBirth());
-        if (request.getGender() != null) user.setGender(request.getGender());
+
+        // Update address fields
         if (request.getStreetAddress() != null) user.setStreetAddress(request.getStreetAddress());
         if (request.getCity() != null) user.setCity(request.getCity());
         if (request.getState() != null) user.setState(request.getState());
         if (request.getPostalCode() != null) user.setPostalCode(request.getPostalCode());
         if (request.getCountry() != null) user.setCountry(request.getCountry());
+
+        // Update preferences
         if (request.getNewsletter() != null) user.setNewsletter(request.getNewsletter());
         if (request.getShippingFrequency() != null) user.setShippingFrequency(request.getShippingFrequency());
         if (request.getVehicleType() != null) user.setVehicleType(request.getVehicleType());
         if (request.getEstimatedShippingDate() != null) user.setEstimatedShippingDate(request.getEstimatedShippingDate());
+
+        // Update document info
+        if (request.getIdNumber() != null) user.setIdNumber(request.getIdNumber());
+
+        // Update company fields if provided
+        if (request.getSellerType() != null) user.setSellerType(request.getSellerType());
+        if (request.getCompanyName() != null) user.setCompanyName(request.getCompanyName());
+        if (request.getCompanyRegistrationNumber() != null) user.setCompanyRegistrationNumber(request.getCompanyRegistrationNumber());
+        if (request.getKraPin() != null) user.setKraPin(request.getKraPin());
+        if (request.getBusinessPermitNumber() != null) user.setBusinessPermitNumber(request.getBusinessPermitNumber());
+        if (request.getCompanyAddress() != null) user.setCompanyAddress(request.getCompanyAddress());
 
         return userRepository.save(user);
     }
@@ -136,6 +173,7 @@ public class UserService implements UserDetailsService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         userRepository.delete(user);
     }
+
     public String saveProfilePicture(Long userId, MultipartFile file) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -164,7 +202,7 @@ public class UserService implements UserDetailsService {
                     ObjectUtils.asMap(
                             "public_id", "profile-pictures/" + uniqueFileName,
                             "resource_type", "auto",
-                            "folder", "user-profiles" // Optional: organize in folder
+                            "folder", "user-profiles"
                     )
             );
 
@@ -180,29 +218,26 @@ public class UserService implements UserDetailsService {
             throw new RuntimeException("Failed to upload profile picture: " + e.getMessage());
         }
     }
+
     public void deleteOldProfilePicture(String oldImageUrl) {
         if (oldImageUrl != null && !oldImageUrl.isEmpty()) {
             try {
-                // Extract public_id from URL
                 String publicId = extractPublicIdFromUrl(oldImageUrl);
                 if (publicId != null) {
                     cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
                 }
             } catch (Exception e) {
-                // Log the error but don't throw - we don't want to fail the update if delete fails
                 System.err.println("Failed to delete old profile picture: " + e.getMessage());
             }
         }
     }
+
     private String extractPublicIdFromUrl(String imageUrl) {
         try {
-            // Cloudinary URL pattern: https://res.cloudinary.com/cloudname/image/upload/v1234567/public_id.jpg
             String[] parts = imageUrl.split("/upload/");
             if (parts.length > 1) {
                 String withVersion = parts[1];
-                // Remove version part (v1234567/)
                 String withoutVersion = withVersion.replaceFirst("v\\d+/", "");
-                // Remove file extension
                 return withoutVersion.substring(0, withoutVersion.lastIndexOf('.'));
             }
         } catch (Exception e) {
@@ -210,39 +245,38 @@ public class UserService implements UserDetailsService {
         }
         return null;
     }
+
     public String updateProfilePicture(Long userId, MultipartFile file) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Delete old profile picture if exists
         if (user.getProfilePicture() != null && !user.getProfilePicture().isEmpty()) {
             deleteOldProfilePicture(user.getProfilePicture());
         }
 
-        // Upload new profile picture
         return saveProfilePicture(userId, file);
     }
+
     public void changePassword(Long userId, String currentPassword, String newPassword) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Verify current password
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new RuntimeException("Current password is incorrect");
         }
 
-        // Validate new password
         if (newPassword.length() < 8) {
             throw new RuntimeException("New password must be at least 8 characters long");
         }
 
-        // Update password
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
     }
+
     public User save(User user) {
         return userRepository.save(user);
     }
+
     /**
      * ============================
      *  GET CURRENT USER FROM JWT TOKEN
@@ -250,7 +284,6 @@ public class UserService implements UserDetailsService {
      */
     public Optional<User> getCurrentUserFromToken() {
         try {
-            // Get authentication from security context
             var authentication = SecurityContextHolder.getContext().getAuthentication();
 
             if (authentication == null || !authentication.isAuthenticated()) {
@@ -259,12 +292,10 @@ public class UserService implements UserDetailsService {
 
             String username = authentication.getName();
 
-            // If username is "anonymousUser", return empty
             if ("anonymousUser".equals(username)) {
                 return Optional.empty();
             }
 
-            // Find user by email (username in JWT is typically the email)
             return findByEmail(username);
 
         } catch (Exception e) {
@@ -272,14 +303,12 @@ public class UserService implements UserDetailsService {
             return Optional.empty();
         }
     }
+
     public User approveUser(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
 
-        // Update user status to approved
         user.setStatus("approved");
-
-
         user.setUpdatedAt(LocalDateTime.now());
         emailService.sendApprovalEmail(
                 user.getEmail(),
@@ -288,6 +317,7 @@ public class UserService implements UserDetailsService {
 
         return userRepository.save(user);
     }
+
     public Page<User> findAllUsers(Pageable pageable) {
         return userRepository.findAll(pageable);
     }

@@ -23,9 +23,6 @@ public class SignupRequest {
     @Size(max = 15, message = "Phone number cannot exceed 15 characters")
     private String phone;
 
-    private String dateOfBirth;
-    private String gender;
-
     @NotBlank(message = "Password is required")
     @Size(min = 8, message = "Password must be at least 8 characters long")
     private String password;
@@ -36,9 +33,12 @@ public class SignupRequest {
     private String state;
     private String postalCode;
     private String country;
+
+    // Document fields
     private String passportPhoto;
     private String govtId;
     private String idNumber;
+
     // Preferences
     private Set<String> preferredCommunication;
     private boolean newsletter;
@@ -49,8 +49,26 @@ public class SignupRequest {
     private String estimatedShippingDate;
     private String sourceCountry = "UK";
     private String destinationCountry = "Kenya";
+
+    // Account fields
     private String role = "SELLER";
     private String status;
-    private String VerificationCode;
-    private Boolean EmailVerified;
+    private String verificationCode;
+    private Boolean emailVerified;
+
+    // NEW: Seller type field
+    private String sellerType; // "individual" or "company"
+
+    // NEW: Company fields
+    private String companyName;
+    private String companyRegistrationNumber;
+    private String kraPin;
+    private String businessPermitNumber;
+    private String companyAddress;
+
+    // NEW: Company document fields
+    private String certificateOfIncorporation;
+    private String kraPinCertificate;
+    private String businessPermit;
+    private String trademarkImage;
 }

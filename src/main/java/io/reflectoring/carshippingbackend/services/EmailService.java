@@ -15,6 +15,7 @@ import jakarta.mail.internet.MimeMessage;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.LocalDate;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,9 +27,9 @@ import java.util.UUID;
 public class EmailService {
 
     private final JavaMailSender mailSender;
-    private final TemplateEngine templateEngine; // Add this
+    private final TemplateEngine templateEngine;
 
-    // Your existing methods remain the same
+    // ============= EXISTING METHODS =============
     @Async
     public void sendVerificationEmail(String to, String code) {
         try {
@@ -95,19 +96,85 @@ public class EmailService {
         }
     }
 
-    // NEW: Send review request email with HTML template
+    @Async
+    public void sendSimpleMessage(String to, String subject, String content) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setFrom("info@f-carshipping.com");
+            message.setSubject(subject);
+            message.setText(content);
+
+            mailSender.send(message);
+            log.info("Email sent successfully to {}", to);
+
+        } catch (Exception e) {
+            log.error("Failed to send email to {}: {}", to, e.getMessage());
+        }
+    }
+
+    // ============= NEW REQUIRED METHODS =============
+
+    // Send order confirmation email with review link
+    @Async
+    public void sendOrderConfirmationEmail(ItemRequest order) {
+        try {
+            String reviewLink = generateReviewLink(order);
+
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("clientName", order.getClientName());
+            variables.put("requestId", order.getRequestId());
+            variables.put("itemName", order.getItemName());
+            variables.put("orderDate", order.getCreatedAt().toLocalDate().toString());
+            variables.put("orderUrl", "https://f-carshipping.com/dashboard/orders/" + order.getId());
+            variables.put("reviewLink", reviewLink);
+
+            String subject = String.format("Order Confirmed - Request ID: %s", order.getRequestId());
+            sendHtmlEmail(order.getClientEmail(), subject, "order-confirmation", variables);
+
+            log.info("Order confirmation email sent to {} for order {}",
+                    order.getClientEmail(), order.getRequestId());
+
+        } catch (Exception e) {
+            log.error("Failed to send order confirmation email: {}", e.getMessage());
+        }
+    }
+
+    // Send status update email with review link
+    @Async
+    public void sendStatusUpdateEmail(ItemRequest order) {
+        try {
+            String reviewLink = generateReviewLink(order);
+
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("clientName", order.getClientName());
+            variables.put("requestId", order.getRequestId());
+            variables.put("itemName", order.getItemName());
+            variables.put("newStatus", order.getStatus());
+            variables.put("updatedDate", LocalDate.now().toString());
+            variables.put("orderUrl", "https://f-carshipping.com/dashboard/orders/" + order.getId());
+            variables.put("reviewLink", reviewLink);
+
+            String subject = String.format("Order Status Updated - Request ID: %s", order.getRequestId());
+            sendHtmlEmail(order.getClientEmail(), subject, "order-status-updated", variables);
+
+            log.info("Status update email sent to {} for order {}",
+                    order.getClientEmail(), order.getRequestId());
+
+        } catch (Exception e) {
+            log.error("Failed to send status update email: {}", e.getMessage());
+        }
+    }
+
+    // Send review request email (your existing method)
     @Async
     public void sendReviewRequestEmail(ItemRequest order) {
         try {
-            // Generate secure token
             String token = generateSecureToken(order);
-
-            // URL encode parameters for safe transmission
             String encodedItemName = URLEncoder.encode(order.getItemName(), StandardCharsets.UTF_8);
             String encodedClientName = URLEncoder.encode(order.getClientName(), StandardCharsets.UTF_8);
             String encodedEmail = URLEncoder.encode(order.getClientEmail(), StandardCharsets.UTF_8);
 
-            // Create review link with all parameters
             String reviewUrl = String.format(
                     "https://f-carshipping.com/reviews?orderId=%d&token=%s&item=%s&client=%s&email=%s",
                     order.getId(),
@@ -117,7 +184,6 @@ public class EmailService {
                     encodedEmail
             );
 
-            // Prepare template variables
             Map<String, Object> variables = new HashMap<>();
             variables.put("clientName", order.getClientName());
             variables.put("itemName", order.getItemName());
@@ -129,7 +195,6 @@ public class EmailService {
             String subject = String.format("How was your experience with %s? - f-carshipping.com",
                     order.getItemName());
 
-            // Send HTML email
             sendHtmlEmail(order.getClientEmail(), subject, "review-request", variables);
 
             log.info("Review request email sent to {} for order {}",
@@ -140,16 +205,21 @@ public class EmailService {
         }
     }
 
-    // NEW: Send order cancelled by client notification
+    // Send order cancelled by client notification
     @Async
     public void sendOrderCancelledByClientEmail(ItemRequest order) {
         try {
-            // Email to client
+            String reviewLink = generateReviewLink(order);
+
+            // Email to client with review link
             Map<String, Object> clientVariables = new HashMap<>();
             clientVariables.put("clientName", order.getClientName());
             clientVariables.put("requestId", order.getRequestId());
             clientVariables.put("itemName", order.getItemName());
-            clientVariables.put("cancelledDate", java.time.LocalDate.now().toString());
+            clientVariables.put("cancelledDate", LocalDate.now().toString());
+            clientVariables.put("cancellationReason",
+                    order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified");
+            clientVariables.put("reviewLink", reviewLink);
 
             String clientSubject = String.format("Order Cancelled - Request ID: %s", order.getRequestId());
             sendHtmlEmail(order.getClientEmail(), clientSubject, "order-cancelled-client", clientVariables);
@@ -160,7 +230,7 @@ public class EmailService {
             adminVariables.put("clientEmail", order.getClientEmail());
             adminVariables.put("requestId", order.getRequestId());
             adminVariables.put("itemName", order.getItemName());
-            adminVariables.put("cancelledDate", java.time.LocalDate.now().toString());
+            adminVariables.put("cancelledDate", LocalDate.now().toString());
             adminVariables.put("adminUrl", "https://f-carshipping.com/admin/orders/" + order.getId());
 
             String adminSubject = String.format("[ADMIN] Order Cancelled by Client - %s", order.getRequestId());
@@ -171,17 +241,20 @@ public class EmailService {
         }
     }
 
-    // NEW: Send order cancelled by admin notification
+    // Send order cancelled by admin notification
     @Async
     public void sendOrderCancelledByAdminEmail(ItemRequest order) {
         try {
+            String reviewLink = generateReviewLink(order);
+
             Map<String, Object> variables = new HashMap<>();
             variables.put("clientName", order.getClientName());
             variables.put("requestId", order.getRequestId());
             variables.put("itemName", order.getItemName());
-            variables.put("cancelledDate", java.time.LocalDate.now().toString());
+            variables.put("cancelledDate", LocalDate.now().toString());
             variables.put("cancellationReason",
                     order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified");
+            variables.put("reviewLink", reviewLink);
 
             String subject = String.format("Your Order Has Been Cancelled - Request ID: %s", order.getRequestId());
             sendHtmlEmail(order.getClientEmail(), subject, "order-cancelled-admin", variables);
@@ -191,28 +264,31 @@ public class EmailService {
         }
     }
 
-    // NEW: Send order edited by client notification
+    // Send order edited by client notification
     @Async
     public void sendOrderEditedByClientEmail(ItemRequest order, Map<String, String> changes) {
         try {
-            // Email to client
+            String reviewLink = generateReviewLink(order);
+
+            // Email to client with review link
             Map<String, Object> clientVariables = new HashMap<>();
             clientVariables.put("clientName", order.getClientName());
             clientVariables.put("requestId", order.getRequestId());
             clientVariables.put("itemName", order.getItemName());
-            clientVariables.put("updatedDate", java.time.LocalDate.now().toString());
+            clientVariables.put("updatedDate", LocalDate.now().toString());
             clientVariables.put("orderUrl", "https://f-carshipping.com/dashboard/orders/" + order.getId());
+            clientVariables.put("reviewLink", reviewLink);
 
             String clientSubject = String.format("Order Updated - Request ID: %s", order.getRequestId());
             sendHtmlEmail(order.getClientEmail(), clientSubject, "order-edited-client", clientVariables);
 
-            // Email to admin
+            // Email to admin with changes
             Map<String, Object> adminVariables = new HashMap<>();
             adminVariables.put("clientName", order.getClientName());
             adminVariables.put("clientEmail", order.getClientEmail());
             adminVariables.put("requestId", order.getRequestId());
             adminVariables.put("itemName", order.getItemName());
-            adminVariables.put("updatedDate", java.time.LocalDate.now().toString());
+            adminVariables.put("updatedDate", LocalDate.now().toString());
             adminVariables.put("adminUrl", "https://f-carshipping.com/admin/orders/" + order.getId());
             adminVariables.put("changes", changes);
 
@@ -224,17 +300,20 @@ public class EmailService {
         }
     }
 
-    // NEW: Send order edited by admin notification
+    // Send order edited by admin notification
     @Async
     public void sendOrderEditedByAdminEmail(ItemRequest order) {
         try {
+            String reviewLink = generateReviewLink(order);
+
             Map<String, Object> variables = new HashMap<>();
             variables.put("clientName", order.getClientName());
             variables.put("requestId", order.getRequestId());
             variables.put("itemName", order.getItemName());
             variables.put("newStatus", order.getStatus());
-            variables.put("updatedDate", java.time.LocalDate.now().toString());
+            variables.put("updatedDate", LocalDate.now().toString());
             variables.put("orderUrl", "https://f-carshipping.com/dashboard/orders/" + order.getId());
+            variables.put("reviewLink", reviewLink);
 
             String subject = String.format("Your Order Has Been Updated - Request ID: %s", order.getRequestId());
             sendHtmlEmail(order.getClientEmail(), subject, "order-edited-by-admin", variables);
@@ -244,7 +323,7 @@ public class EmailService {
         }
     }
 
-    // NEW: Send thank you email after review
+    // Send thank you email after review
     @Async
     public void sendReviewThankYouEmail(ItemRequest order, int rating) {
         try {
@@ -262,6 +341,30 @@ public class EmailService {
         }
     }
 
+    // ============= HELPER METHODS =============
+
+    // Generate review link for any email
+    private String generateReviewLink(ItemRequest order) {
+        try {
+            String token = generateSecureToken(order);
+            String encodedItemName = URLEncoder.encode(order.getItemName(), StandardCharsets.UTF_8);
+            String encodedClientName = URLEncoder.encode(order.getClientName(), StandardCharsets.UTF_8);
+            String encodedEmail = URLEncoder.encode(order.getClientEmail(), StandardCharsets.UTF_8);
+
+            return String.format(
+                    "https://f-carshipping.com/reviews?orderId=%d&token=%s&item=%s&client=%s&email=%s",
+                    order.getId(),
+                    token,
+                    encodedItemName,
+                    encodedClientName,
+                    encodedEmail
+            );
+        } catch (Exception e) {
+            log.error("Failed to generate review link: {}", e.getMessage());
+            return "https://f-carshipping.com/reviews";
+        }
+    }
+
     // Helper method to send HTML emails
     private void sendHtmlEmail(String to, String subject, String templateName, Map<String, Object> variables) {
         try {
@@ -276,7 +379,7 @@ public class EmailService {
             helper.setTo(to);
             helper.setFrom("reviews@f-carshipping.com");
             helper.setSubject(subject);
-            helper.setText(htmlContent, true); // true = HTML
+            helper.setText(htmlContent, true);
 
             mailSender.send(message);
             log.info("HTML email sent successfully to {} using template {}", to, templateName);
@@ -284,7 +387,7 @@ public class EmailService {
         } catch (Exception e) {
             log.error("Failed to send HTML email to {}: {}", to, e.getMessage());
 
-            // Fallback to plain text if HTML fails
+            // Fallback to plain text
             try {
                 String fallbackContent = "Please visit https://f-carshipping.com to view this message.";
                 SimpleMailMessage fallback = new SimpleMailMessage();
@@ -296,24 +399,6 @@ public class EmailService {
             } catch (Exception ex) {
                 log.error("Even fallback email failed: {}", ex.getMessage());
             }
-        }
-    }
-
-    // Your existing sendSimpleMessage method
-    @Async
-    public void sendSimpleMessage(String to, String subject, String content) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setFrom("info@f-carshipping.com");
-            message.setSubject(subject);
-            message.setText(content);
-
-            mailSender.send(message);
-            log.info("Email sent successfully to {}", to);
-
-        } catch (Exception e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
         }
     }
 

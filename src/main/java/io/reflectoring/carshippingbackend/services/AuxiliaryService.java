@@ -57,8 +57,8 @@ public class AuxiliaryService {
 
         ItemRequest saved = itemRequestRepository.save(request);
 
-        // Send confirmation email
-        sendOrderConfirmationEmail(saved);
+        // Send confirmation email (UPDATED to use HTML template with review link)
+        emailService.sendOrderConfirmationEmail(saved);
 
         return saved;
     }
@@ -88,8 +88,8 @@ public class AuxiliaryService {
 
         ItemRequest updated = itemRequestRepository.save(request);
 
-        // Send status update email to client
-        sendStatusUpdateEmail(updated);
+        // Send status update email to client (UPDATED to use HTML template with review link)
+        emailService.sendStatusUpdateEmail(updated);
 
         // If status changed to DELIVERED, send review request
         if ("DELIVERED".equals(status) && !"DELIVERED".equals(oldStatus)) {
@@ -113,7 +113,7 @@ public class AuxiliaryService {
 
         ItemRequest saved = itemRequestRepository.save(existingOrder);
 
-        // Send email notification to client about admin edit
+        // Send email notification to client about admin edit (with review link)
         emailService.sendOrderEditedByAdminEmail(saved);
 
         return saved;
@@ -348,7 +348,7 @@ public class AuxiliaryService {
 
         ItemRequest updated = itemRequestRepository.save(order);
 
-        // Send cancellation email notifications
+        // Send cancellation email notifications (with review link)
         emailService.sendOrderCancelledByClientEmail(updated);
 
         return updated;
@@ -365,7 +365,7 @@ public class AuxiliaryService {
 
         ItemRequest updated = itemRequestRepository.save(order);
 
-        // Send cancellation email to client
+        // Send cancellation email to client (with review link)
         emailService.sendOrderCancelledByAdminEmail(updated);
 
         return updated;
@@ -508,81 +508,5 @@ public class AuxiliaryService {
         }
     }
 
-    // Helper: Send order confirmation email
-    private void sendOrderConfirmationEmail(ItemRequest order) {
-        if (emailService != null) {
-            String subject = "Item Request Submitted Successfully";
-            String content = String.format("""
-                    Dear %s,
-                    
-                    Your request for "%s" has been submitted successfully.
-                    Request ID: %s
-                    
-                    Our team will review your request and contact you within 24-48 hours.
-                    
-                    Best regards,
-                    Shipping Team
-                    """,
-                    order.getClientName(),
-                    order.getItemName(),
-                    order.getRequestId());
 
-            emailService.sendSimpleMessage(order.getClientEmail(), subject, content);
-        }
-    }
-
-    // Helper: Send status update email
-    private void sendStatusUpdateEmail(ItemRequest order) {
-        if (emailService != null) {
-            String subject = "Order Status Updated";
-            String content = String.format("""
-                    Dear %s,
-                    
-                    Your order status has been updated.
-                    
-                    Request ID: %s
-                    New Status: %s
-                    
-                    Log in to your dashboard to view details.
-                    
-                    Best regards,
-                    Shipping Team
-                    """,
-                    order.getClientName(),
-                    order.getRequestId(),
-                    order.getStatus());
-
-            emailService.sendSimpleMessage(order.getClientEmail(), subject, content);
-        }
-    }
-
-    // Helper: Send order update notification to admin
-    private void sendOrderUpdateNotification(ItemRequest order) {
-        if (emailService != null) {
-            String subject = "Order Updated by Client";
-            String content = String.format("""
-                    Dear Admin,
-                    
-                    Client %s has updated their order.
-                    
-                    Order Details:
-                    - Request ID: %s
-                    - Item: %s
-                    - Status: %s
-                    - Updated at: %s
-                    
-                    Please review the changes.
-                    
-                    Regards,
-                    Shipping System
-                    """,
-                    order.getClientName(),
-                    order.getRequestId(),
-                    order.getItemName(),
-                    order.getStatus(),
-                    order.getUpdatedAt());
-
-            emailService.sendSimpleMessage(adminEmail, subject, content);
-        }
-    }
 }

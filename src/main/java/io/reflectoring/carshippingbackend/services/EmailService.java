@@ -126,7 +126,7 @@ public class EmailService {
             variables.put("requestId", order.getRequestId());
             variables.put("itemName", order.getItemName());
             variables.put("orderDate", order.getCreatedAt().toLocalDate().toString());
-            variables.put("orderUrl", "https://f-carshipping.com/dashboard/orders/" + order.getId());
+            variables.put("orderUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/" );
             variables.put("reviewLink", reviewLink);
 
             String subject = String.format("Order Confirmed - Request ID: %s", order.getRequestId());
@@ -152,7 +152,7 @@ public class EmailService {
             variables.put("itemName", order.getItemName());
             variables.put("newStatus", order.getStatus());
             variables.put("updatedDate", LocalDate.now().toString());
-            variables.put("orderUrl", "https://f-carshipping.com/dashboard/orders/" + order.getId());
+            variables.put("orderUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/");
             variables.put("reviewLink", reviewLink);
 
             String subject = String.format("Order Status Updated - Request ID: %s", order.getRequestId());
@@ -176,7 +176,7 @@ public class EmailService {
             String encodedEmail = URLEncoder.encode(order.getClientEmail(), StandardCharsets.UTF_8);
 
             String reviewUrl = String.format(
-                    "https://f-carshipping.com/reviews?orderId=%d&token=%s&item=%s&client=%s&email=%s",
+                    "https://f-carshipping.com/Reviews?orderId=%d&token=%s&item=%s&client=%s&email=%s",
                     order.getId(),
                     token,
                     encodedItemName,
@@ -231,7 +231,7 @@ public class EmailService {
             adminVariables.put("requestId", order.getRequestId());
             adminVariables.put("itemName", order.getItemName());
             adminVariables.put("cancelledDate", LocalDate.now().toString());
-            adminVariables.put("adminUrl", "https://f-carshipping.com/admin/UserOrdersPage/" + order.getId());
+            adminVariables.put("adminUrl", "https://f-carshipping.com/dashboard/AdminRequestsPage/");
 
             String adminSubject = String.format("[ADMIN] Order Cancelled by Client - %s", order.getRequestId());
             sendHtmlEmail("admin@f-carshipping.com", adminSubject, "order-cancelled-admin", adminVariables);
@@ -276,7 +276,7 @@ public class EmailService {
             clientVariables.put("requestId", order.getRequestId());
             clientVariables.put("itemName", order.getItemName());
             clientVariables.put("updatedDate", LocalDate.now().toString());
-            clientVariables.put("orderUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/" + order.getId());
+            clientVariables.put("orderUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/");
             clientVariables.put("reviewLink", reviewLink);
 
             String clientSubject = String.format("Order Updated - Request ID: %s", order.getRequestId());
@@ -289,7 +289,7 @@ public class EmailService {
             adminVariables.put("requestId", order.getRequestId());
             adminVariables.put("itemName", order.getItemName());
             adminVariables.put("updatedDate", LocalDate.now().toString());
-            adminVariables.put("adminUrl", "https://f-carshipping.com/admin/UserOrdersPage/" + order.getId());
+            adminVariables.put("adminUrl", "https://f-carshipping.com/admin/UserOrdersPage/" );
             adminVariables.put("changes", changes);
 
             String adminSubject = String.format("[ADMIN] Order Updated by Client - %s", order.getRequestId());
@@ -312,7 +312,7 @@ public class EmailService {
             variables.put("itemName", order.getItemName());
             variables.put("newStatus", order.getStatus());
             variables.put("updatedDate", LocalDate.now().toString());
-            variables.put("orderUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/" + order.getId());
+            variables.put("orderUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/");
             variables.put("reviewLink", reviewLink);
 
             String subject = String.format("Your Order Has Been Updated - Request ID: %s", order.getRequestId());
@@ -331,7 +331,7 @@ public class EmailService {
             variables.put("clientName", order.getClientName());
             variables.put("itemName", order.getItemName());
             variables.put("rating", rating);
-            variables.put("dashboardUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/" + order.getId());
+            variables.put("dashboardUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/" );
 
             String subject = "Thank You for Your Review! - f-carshipping.com";
             sendHtmlEmail(order.getClientEmail(), subject, "review-thank-you", variables);
@@ -352,7 +352,7 @@ public class EmailService {
             String encodedEmail = URLEncoder.encode(order.getClientEmail(), StandardCharsets.UTF_8);
 
             return String.format(
-                    "https://f-carshipping.com/reviews?orderId=%d&token=%s&item=%s&client=%s&email=%s",
+                    "https://f-carshipping.com/Reviews?orderId=%d&token=%s&item=%s&client=%s&email=%s",
                     order.getId(),
                     token,
                     encodedItemName,

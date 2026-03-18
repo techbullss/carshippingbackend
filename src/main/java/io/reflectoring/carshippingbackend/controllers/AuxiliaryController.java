@@ -24,6 +24,7 @@ import java.util.Map;
 public class AuxiliaryController {
 
     private final AuxiliaryService auxiliaryService;
+    private final ObjectMapper objectMapper;
 
     // Client submits item request
     @PostMapping("/request-item")
@@ -37,9 +38,11 @@ public class AuxiliaryController {
         return ResponseEntity.ok(saved);
     }
 
-    // Get client's requests
+    // Get client's requests with search and filter
     @GetMapping("/my-requests")
     public ResponseEntity<Page<ItemRequest>> getMyRequests(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
@@ -50,19 +53,23 @@ public class AuxiliaryController {
                 Sort.by(Sort.Direction.fromString(sortDir), sortBy));
 
         String clientEmail = authentication.getName();
-        Page<ItemRequest> requests = auxiliaryService.getClientRequests(clientEmail, pageable);
+        Page<ItemRequest> requests = auxiliaryService.getClientRequestsWithFilters(clientEmail, status, search, pageable);
         return ResponseEntity.ok(requests);
     }
 
-    // Admin: Get all requests
+    // Admin: Get all requests with filters
     @GetMapping("/requests")
     public ResponseEntity<Page<ItemRequest>> getAllRequests(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDir) {
 
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, size,
+                Sort.by(Sort.Direction.fromString(sortDir), sortBy));
+
         Page<ItemRequest> requests = auxiliaryService.getAllRequests(status, search, pageable);
         return ResponseEntity.ok(requests);
     }
@@ -77,14 +84,34 @@ public class AuxiliaryController {
         return ResponseEntity.ok(updated);
     }
 
-    // Submit review (NO APPROVAL NEEDED - posts immediately)
+    // Admin: Edit any order
+    @PutMapping("/admin/requests/{id}")
+    public ResponseEntity<ItemRequest> adminUpdateOrder(
+            @PathVariable Long id,
+            @RequestBody ItemRequest updatedRequest) throws IOException {
+
+        ItemRequest updated = auxiliaryService.adminUpdateOrder(id, updatedRequest);
+        return ResponseEntity.ok(updated);
+    }
+
+    // Admin: Cancel any order
+    @PatchMapping("/admin/requests/{id}/cancel")
+    public ResponseEntity<ItemRequest> adminCancelOrder(
+            @PathVariable Long id) {
+
+        ItemRequest updated = auxiliaryService.updateRequestStatus(id, "CANCELLED");
+        return ResponseEntity.ok(updated);
+    }
+
+    // Submit review
     @PostMapping("/reviews")
-    public ResponseEntity<Review> submitReview(@RequestBody Review review) {
-        Review saved = auxiliaryService.submitReview(review);
+    public ResponseEntity<Review> submitReview(@RequestBody Review review, Authentication authentication) {
+        String clientEmail = authentication != null ? authentication.getName() : null;
+        Review saved = auxiliaryService.submitReview(review, clientEmail);
         return ResponseEntity.ok(saved);
     }
 
-    // Get public reviews (ALL reviews - no approval filter)
+    // Get public reviews
     @GetMapping("/reviews/public")
     public ResponseEntity<Page<Review>> getPublicReviews(
             @RequestParam(defaultValue = "0") int page,
@@ -95,7 +122,7 @@ public class AuxiliaryController {
         return ResponseEntity.ok(reviews);
     }
 
-    // Get review statistics (for rating breakdown)
+    // Get review statistics
     @GetMapping("/reviews/stats")
     public ResponseEntity<Map<String, Object>> getReviewStats() {
         Map<String, Object> stats = auxiliaryService.getReviewStats();
@@ -109,7 +136,7 @@ public class AuxiliaryController {
         return ResponseEntity.ok(updated);
     }
 
-    // Admin: Get all reviews for moderation (optional - with approval filter)
+    // Admin: Get all reviews for moderation
     @GetMapping("/reviews")
     public ResponseEntity<Page<Review>> getAllReviews(
             @RequestParam(required = false) Boolean approved,
@@ -133,7 +160,7 @@ public class AuxiliaryController {
         return ResponseEntity.ok(reviews);
     }
 
-    // Admin: Moderate review (optional - keep if you want override capability)
+    // Admin: Moderate review
     @PatchMapping("/reviews/{id}/moderate")
     public ResponseEntity<Review> moderateReview(
             @PathVariable Long id,
@@ -143,6 +170,13 @@ public class AuxiliaryController {
         return ResponseEntity.ok(updated);
     }
 
+    // Admin: Delete review
+    @DeleteMapping("/reviews/{id}")
+    public ResponseEntity<Void> deleteReview(@PathVariable Long id) {
+        auxiliaryService.deleteReview(id);
+        return ResponseEntity.ok().build();
+    }
+
     // Get dashboard stats
     @GetMapping("/stats")
     public ResponseEntity<Map<String, Object>> getDashboardStats() {
@@ -150,7 +184,7 @@ public class AuxiliaryController {
         return ResponseEntity.ok(stats);
     }
 
-    // Helper endpoint for frontend to get item categories
+    // Get categories
     @GetMapping("/categories")
     public ResponseEntity<String[]> getCategories() {
         String[] categories = {
@@ -166,37 +200,39 @@ public class AuxiliaryController {
         };
         return ResponseEntity.ok(categories);
     }
-    // Get single order (for editing)
+
+    // Get single order (client)
     @GetMapping("/requests/{id}")
     public ResponseEntity<ItemRequest> getOrderById(
-            @PathVariable("id") Long id
-            ) {
+            @PathVariable("id") Long id,
+            Authentication authentication) {
 
-        String clientEmail = "bwanamaina2010@gmail.com";
+        String clientEmail = authentication != null ? authentication.getName() : null;
         ItemRequest order = auxiliaryService.getOrderById(id, clientEmail);
         return ResponseEntity.ok(order);
     }
 
-    // Update order (client edit)
+    // Update order (client edit) - FIXED
     @PutMapping("/requests/{id}")
     public ResponseEntity<ItemRequest> updateOrder(
             @PathVariable Long id,
-            @RequestPart("request") String requestJson,
-            @RequestPart(value = "images", required = false) MultipartFile[] images,
+            @RequestBody ItemRequest updatedRequest,  // Changed from @RequestPart
             Authentication authentication) throws IOException {
 
-        // Parse JSON request
-        ObjectMapper objectMapper = new ObjectMapper();
-        ItemRequest updatedRequest = objectMapper.readValue(requestJson, ItemRequest.class);
-
         String clientEmail = authentication.getName();
-        ItemRequest updated = auxiliaryService.updateOrder(id, updatedRequest, images, clientEmail);
+        ItemRequest updated = auxiliaryService.updateOrder(id, updatedRequest, null, clientEmail);
         return ResponseEntity.ok(updated);
     }
-    @DeleteMapping("/reviews/{id}")
-    public ResponseEntity<Void> deleteReview(@PathVariable Long id) {
-        auxiliaryService.deleteReview(id);
-        return ResponseEntity.ok().build();
-    }
 
+    // Update order images (separate endpoint)
+    @PutMapping("/requests/{id}/images")
+    public ResponseEntity<ItemRequest> updateOrderImages(
+            @PathVariable Long id,
+            @RequestParam("images") MultipartFile[] images,
+            Authentication authentication) throws IOException {
+
+        String clientEmail = authentication.getName();
+        ItemRequest updated = auxiliaryService.updateOrderImages(id, images, clientEmail);
+        return ResponseEntity.ok(updated);
+    }
 }

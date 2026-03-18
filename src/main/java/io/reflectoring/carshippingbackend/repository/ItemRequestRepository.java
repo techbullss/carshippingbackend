@@ -1,4 +1,3 @@
-// ItemRequestRepository.java
 package io.reflectoring.carshippingbackend.repository;
 
 import io.reflectoring.carshippingbackend.tables.ItemRequest;
@@ -16,12 +15,34 @@ public interface ItemRequestRepository extends JpaRepository<ItemRequest, Long> 
 
     Page<ItemRequest> findByClientEmail(String clientEmail, Pageable pageable);
 
-    @Query("SELECT r FROM ItemRequest r WHERE " +
+    // Client requests with search
+    @Query("SELECT r FROM ItemRequest r WHERE r.clientEmail = :email AND " +
             "(:status IS NULL OR r.status = :status) AND " +
-            "(:search IS NULL OR LOWER(r.itemName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "(:search IS NULL OR :search = '' OR " +
+            "LOWER(r.itemName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(r.requestId) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(r.category) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(r.clientName) LIKE LOWER(CONCAT('%', :search, '%')))")
-    Page<ItemRequest> searchRequests(
+    Page<ItemRequest> findClientRequestsWithFilters(
+            @Param("email") String email,
             @Param("status") String status,
             @Param("search") String search,
             Pageable pageable);
+
+    // Admin requests with search
+    @Query("SELECT r FROM ItemRequest r WHERE " +
+            "(:status IS NULL OR r.status = :status) AND " +
+            "(:search IS NULL OR :search = '' OR " +
+            "LOWER(r.itemName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(r.requestId) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(r.category) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(r.clientName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(r.clientEmail) LIKE LOWER(CONCAT('%', :search, '%')))")
+    Page<ItemRequest> findAllWithFilters(
+            @Param("status") String status,
+            @Param("search") String search,
+            Pageable pageable);
+
+    // Count by status
+    long countByStatus(String status);
 }

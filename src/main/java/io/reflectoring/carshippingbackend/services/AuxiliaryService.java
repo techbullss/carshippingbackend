@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -83,6 +82,7 @@ public class AuxiliaryService {
         ItemRequest request = itemRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Request not found"));
 
+        String oldStatus = request.getStatus();
         request.setStatus(status);
         request.setUpdatedAt(LocalDateTime.now());
 
@@ -90,6 +90,11 @@ public class AuxiliaryService {
 
         // Send status update email to client
         sendStatusUpdateEmail(updated);
+
+        // If status changed to DELIVERED, send review request
+        if ("DELIVERED".equals(status) && !"DELIVERED".equals(oldStatus)) {
+            emailService.sendReviewRequestEmail(updated);
+        }
 
         return updated;
     }
@@ -99,11 +104,19 @@ public class AuxiliaryService {
         ItemRequest existingOrder = itemRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
+        // Store old order for change tracking
+        ItemRequest oldOrder = cloneOrder(existingOrder);
+
         // Update fields (admin can update everything)
         updateOrderFields(existingOrder, updatedRequest);
         existingOrder.setUpdatedAt(LocalDateTime.now());
 
-        return itemRequestRepository.save(existingOrder);
+        ItemRequest saved = itemRequestRepository.save(existingOrder);
+
+        // Send email notification to client about admin edit
+        emailService.sendOrderEditedByAdminEmail(saved);
+
+        return saved;
     }
 
     // Submit review
@@ -112,7 +125,58 @@ public class AuxiliaryService {
         review.setCreatedAt(LocalDateTime.now());
         review.setApproved(true); // Auto-approve
         review.setHelpfulCount(0);
-        return reviewRepository.save(review);
+
+        Review saved = reviewRepository.save(review);
+
+        // Send thank you email if we have the order ID
+        if (review.getOrderId() != null) {
+            itemRequestRepository.findById(review.getOrderId()).ifPresent(order -> {
+                emailService.sendReviewThankYouEmail(order, review.getRating());
+            });
+        }
+
+        return saved;
+    }
+
+    // Submit review from email (with order ID)
+    public Review submitReviewFromEmail(Map<String, Object> reviewData) {
+        Long orderId = Long.parseLong(reviewData.get("orderId").toString());
+        Integer rating = (Integer) reviewData.get("rating");
+        String comment = (String) reviewData.get("comment");
+        String clientName = (String) reviewData.get("clientName");
+        String itemName = (String) reviewData.get("itemName");
+
+        // Get order to get client email
+        ItemRequest order = itemRequestRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        // Create review
+        Review review = new Review();
+        review.setClientName(clientName);
+        review.setClientEmail(order.getClientEmail());
+        review.setItemName(itemName);
+        review.setRating(rating);
+        review.setComment(comment);
+        review.setOrderId(orderId);
+        review.setApproved(true);
+        review.setCreatedAt(LocalDateTime.now());
+        review.setHelpfulCount(0);
+
+        Review saved = reviewRepository.save(review);
+
+        // Send thank you email
+        emailService.sendReviewThankYouEmail(order, rating);
+
+        return saved;
+    }
+
+    // Validate review token
+    public boolean validateReviewToken(Long orderId, String token) {
+        ItemRequest order = itemRequestRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        String expectedToken = generateReviewToken(order);
+        return expectedToken.equals(token);
     }
 
     // Get all reviews
@@ -231,6 +295,9 @@ public class AuxiliaryService {
             throw new RuntimeException("Order cannot be edited in its current status");
         }
 
+        // Store old order for change tracking
+        ItemRequest oldOrder = cloneOrder(existingOrder);
+
         // Update editable fields
         existingOrder.setItemName(updatedRequest.getItemName());
         existingOrder.setCategory(updatedRequest.getCategory());
@@ -243,6 +310,9 @@ public class AuxiliaryService {
         existingOrder.setNotes(updatedRequest.getNotes());
         existingOrder.setUpdatedAt(LocalDateTime.now());
 
+        // Track changes for email
+        Map<String, String> changes = trackChanges(oldOrder, existingOrder);
+
         // Update images if provided
         if (images != null && images.length > 0) {
             List<String> newUrls = uploadImages(images);
@@ -251,14 +321,54 @@ public class AuxiliaryService {
             } else {
                 existingOrder.setImageUrls(newUrls);
             }
+            changes.put("images", "Added " + images.length + " new image(s)");
         }
 
         ItemRequest saved = itemRequestRepository.save(existingOrder);
 
-        // Notify admin of update
-        sendOrderUpdateNotification(saved);
+        // Send email notifications
+        if (!changes.isEmpty()) {
+            emailService.sendOrderEditedByClientEmail(saved, changes);
+        }
 
         return saved;
+    }
+
+    // Cancel order by client
+    public ItemRequest clientCancelOrder(Long id, String clientEmail, String cancellationReason) {
+        ItemRequest order = getOrderById(id, clientEmail);
+
+        if (!Arrays.asList("PENDING", "SOURCING").contains(order.getStatus())) {
+            throw new RuntimeException("Order cannot be cancelled in its current status");
+        }
+
+        order.setStatus("CANCELLED");
+        order.setCancellationReason(cancellationReason);
+        order.setUpdatedAt(LocalDateTime.now());
+
+        ItemRequest updated = itemRequestRepository.save(order);
+
+        // Send cancellation email notifications
+        emailService.sendOrderCancelledByClientEmail(updated);
+
+        return updated;
+    }
+
+    // Cancel order by admin
+    public ItemRequest adminCancelOrder(Long id, String cancellationReason) {
+        ItemRequest order = itemRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        order.setStatus("CANCELLED");
+        order.setCancellationReason(cancellationReason);
+        order.setUpdatedAt(LocalDateTime.now());
+
+        ItemRequest updated = itemRequestRepository.save(order);
+
+        // Send cancellation email to client
+        emailService.sendOrderCancelledByAdminEmail(updated);
+
+        return updated;
     }
 
     // Update only images
@@ -277,7 +387,15 @@ public class AuxiliaryService {
         }
 
         existingOrder.setUpdatedAt(LocalDateTime.now());
-        return itemRequestRepository.save(existingOrder);
+
+        ItemRequest saved = itemRequestRepository.save(existingOrder);
+
+        // Notify admin of image update
+        Map<String, String> changes = new HashMap<>();
+        changes.put("images", "Added " + images.length + " new image(s)");
+        emailService.sendOrderEditedByClientEmail(saved, changes);
+
+        return saved;
     }
 
     // Helper: Upload images to Cloudinary
@@ -312,6 +430,68 @@ public class AuxiliaryService {
         if (updated.getStatus() != null) existing.setStatus(updated.getStatus());
         if (updated.getClientName() != null) existing.setClientName(updated.getClientName());
         if (updated.getClientPhone() != null) existing.setClientPhone(updated.getClientPhone());
+    }
+
+    // Helper: Clone order for change tracking
+    private ItemRequest cloneOrder(ItemRequest order) {
+        ItemRequest clone = new ItemRequest();
+        clone.setId(order.getId());
+        clone.setRequestId(order.getRequestId());
+        clone.setClientName(order.getClientName());
+        clone.setClientEmail(order.getClientEmail());
+        clone.setItemName(order.getItemName());
+        clone.setCategory(order.getCategory());
+        clone.setDescription(order.getDescription());
+        clone.setOriginCountry(order.getOriginCountry());
+        clone.setDestination(order.getDestination());
+        clone.setBudget(order.getBudget());
+        clone.setQuantity(order.getQuantity());
+        clone.setUrgency(order.getUrgency());
+        clone.setStatus(order.getStatus());
+        clone.setNotes(order.getNotes());
+        clone.setImageUrls(order.getImageUrls() != null ? new ArrayList<>(order.getImageUrls()) : null);
+        return clone;
+    }
+
+    // Helper: Track changes between old and new order
+    private Map<String, String> trackChanges(ItemRequest oldOrder, ItemRequest newOrder) {
+        Map<String, String> changes = new HashMap<>();
+
+        if (!oldOrder.getItemName().equals(newOrder.getItemName())) {
+            changes.put("Item Name", oldOrder.getItemName() + " → " + newOrder.getItemName());
+        }
+        if (!oldOrder.getCategory().equals(newOrder.getCategory())) {
+            changes.put("Category", oldOrder.getCategory() + " → " + newOrder.getCategory());
+        }
+        if (!oldOrder.getOriginCountry().equals(newOrder.getOriginCountry())) {
+            changes.put("Origin", oldOrder.getOriginCountry() + " → " + newOrder.getOriginCountry());
+        }
+        if (!oldOrder.getDestination().equals(newOrder.getDestination())) {
+            changes.put("Destination", oldOrder.getDestination() + " → " + newOrder.getDestination());
+        }
+        if (!oldOrder.getBudget().equals(newOrder.getBudget())) {
+            changes.put("Budget", "$" + oldOrder.getBudget() + " → $" + newOrder.getBudget());
+        }
+        if (!oldOrder.getQuantity().equals(newOrder.getQuantity())) {
+            changes.put("Quantity", oldOrder.getQuantity() + " → " + newOrder.getQuantity());
+        }
+        if (!oldOrder.getUrgency().equals(newOrder.getUrgency())) {
+            changes.put("Urgency", oldOrder.getUrgency() + " → " + newOrder.getUrgency());
+        }
+
+        return changes;
+    }
+
+    // Helper: Generate review token
+    private String generateReviewToken(ItemRequest order) {
+        String data = order.getId() + order.getClientEmail() + order.getRequestId() + "f-carshipping-secret";
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(data.getBytes("UTF-8"));
+            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+        } catch (Exception e) {
+            return UUID.randomUUID().toString();
+        }
     }
 
     // Helper: Extract public ID from Cloudinary URL

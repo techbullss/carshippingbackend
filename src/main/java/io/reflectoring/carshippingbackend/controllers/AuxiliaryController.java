@@ -94,21 +94,66 @@ public class AuxiliaryController {
         return ResponseEntity.ok(updated);
     }
 
-    // Admin: Cancel any order
+    // Admin: Cancel any order with reason (UPDATED)
     @PatchMapping("/admin/requests/{id}/cancel")
     public ResponseEntity<ItemRequest> adminCancelOrder(
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            @RequestParam(required = false) String reason) {
 
-        ItemRequest updated = auxiliaryService.updateRequestStatus(id, "CANCELLED");
+        ItemRequest updated = auxiliaryService.adminCancelOrder(id, reason);
         return ResponseEntity.ok(updated);
     }
 
-    // Submit review
+    // Client: Cancel own order with reason (NEW)
+    @PatchMapping("/requests/{id}/cancel")
+    public ResponseEntity<ItemRequest> clientCancelOrder(
+            @PathVariable Long id,
+            @RequestParam(required = false) String reason,
+            Authentication authentication) {
+
+        String clientEmail = authentication.getName();
+        ItemRequest updated = auxiliaryService.clientCancelOrder(id, clientEmail, reason);
+        return ResponseEntity.ok(updated);
+    }
+
+    // Submit review (from website)
     @PostMapping("/reviews")
     public ResponseEntity<Review> submitReview(@RequestBody Review review, Authentication authentication) {
         String clientEmail = authentication != null ? authentication.getName() : null;
         Review saved = auxiliaryService.submitReview(review, clientEmail);
         return ResponseEntity.ok(saved);
+    }
+
+    // Submit review from email link (NO AUTHENTICATION REQUIRED - NEW)
+    @PostMapping("/reviews/from-email")
+    public ResponseEntity<Review> submitReviewFromEmail(@RequestBody Map<String, Object> reviewData) {
+        Review saved = auxiliaryService.submitReviewFromEmail(reviewData);
+        return ResponseEntity.ok(saved);
+    }
+
+    // Validate review token (for email links - NEW)
+    @GetMapping("/reviews/validate")
+    public ResponseEntity<Map<String, Object>> validateReviewToken(
+            @RequestParam Long orderId,
+            @RequestParam String token) {
+
+        boolean isValid = auxiliaryService.validateReviewToken(orderId, token);
+
+        if (isValid) {
+            ItemRequest order = auxiliaryService.getOrderById(orderId, null);
+            return ResponseEntity.ok(Map.of(
+                    "valid", true,
+                    "clientName", order.getClientName(),
+                    "itemName", order.getItemName(),
+                    "clientEmail", order.getClientEmail(),
+                    "orderId", order.getId()
+            ));
+        } else {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "valid", false,
+                    "message", "Invalid or expired review link"
+            ));
+        }
     }
 
     // Get public reviews
@@ -212,11 +257,11 @@ public class AuxiliaryController {
         return ResponseEntity.ok(order);
     }
 
-    // Update order (client edit) - FIXED
+    // Update order (client edit)
     @PutMapping("/requests/{id}")
     public ResponseEntity<ItemRequest> updateOrder(
             @PathVariable Long id,
-            @RequestBody ItemRequest updatedRequest,  // Changed from @RequestPart
+            @RequestBody ItemRequest updatedRequest,
             Authentication authentication) throws IOException {
 
         String clientEmail = authentication.getName();
@@ -234,5 +279,17 @@ public class AuxiliaryController {
         String clientEmail = authentication.getName();
         ItemRequest updated = auxiliaryService.updateOrderImages(id, images, clientEmail);
         return ResponseEntity.ok(updated);
+    }
+
+    // Test endpoint to send review email (for development - NEW)
+    @PostMapping("/test/send-review-email/{orderId}")
+    public ResponseEntity<String> sendTestReviewEmail(@PathVariable Long orderId) {
+        try {
+            ItemRequest order = auxiliaryService.getOrderById(orderId, null);
+
+            return ResponseEntity.ok("Test review email sent to " + order.getClientEmail());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Failed: " + e.getMessage());
+        }
     }
 }

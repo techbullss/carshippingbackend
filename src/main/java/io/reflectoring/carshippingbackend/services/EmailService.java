@@ -231,7 +231,7 @@ public class EmailService {
             adminVariables.put("requestId", order.getRequestId());
             adminVariables.put("itemName", order.getItemName());
             adminVariables.put("cancelledDate", LocalDate.now().toString());
-            adminVariables.put("adminUrl", "https://f-carshipping.com/admin/orders/" + order.getId());
+            adminVariables.put("adminUrl", "https://f-carshipping.com/admin/UserOrdersPage/" + order.getId());
 
             String adminSubject = String.format("[ADMIN] Order Cancelled by Client - %s", order.getRequestId());
             sendHtmlEmail("admin@f-carshipping.com", adminSubject, "order-cancelled-admin", adminVariables);
@@ -276,7 +276,7 @@ public class EmailService {
             clientVariables.put("requestId", order.getRequestId());
             clientVariables.put("itemName", order.getItemName());
             clientVariables.put("updatedDate", LocalDate.now().toString());
-            clientVariables.put("orderUrl", "https://f-carshipping.com/dashboard/orders/" + order.getId());
+            clientVariables.put("orderUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/" + order.getId());
             clientVariables.put("reviewLink", reviewLink);
 
             String clientSubject = String.format("Order Updated - Request ID: %s", order.getRequestId());
@@ -289,11 +289,11 @@ public class EmailService {
             adminVariables.put("requestId", order.getRequestId());
             adminVariables.put("itemName", order.getItemName());
             adminVariables.put("updatedDate", LocalDate.now().toString());
-            adminVariables.put("adminUrl", "https://f-carshipping.com/admin/orders/" + order.getId());
+            adminVariables.put("adminUrl", "https://f-carshipping.com/admin/UserOrdersPage/" + order.getId());
             adminVariables.put("changes", changes);
 
             String adminSubject = String.format("[ADMIN] Order Updated by Client - %s", order.getRequestId());
-            sendHtmlEmail("admin@f-carshipping.com", adminSubject, "order-edited-admin", adminVariables);
+            sendHtmlEmail("bwanamaina2010@gmail.com", adminSubject, "order-edited-admin", adminVariables);
 
         } catch (Exception e) {
             log.error("Failed to send order edit emails: {}", e.getMessage());
@@ -312,7 +312,7 @@ public class EmailService {
             variables.put("itemName", order.getItemName());
             variables.put("newStatus", order.getStatus());
             variables.put("updatedDate", LocalDate.now().toString());
-            variables.put("orderUrl", "https://f-carshipping.com/dashboard/orders/" + order.getId());
+            variables.put("orderUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/" + order.getId());
             variables.put("reviewLink", reviewLink);
 
             String subject = String.format("Your Order Has Been Updated - Request ID: %s", order.getRequestId());
@@ -331,7 +331,7 @@ public class EmailService {
             variables.put("clientName", order.getClientName());
             variables.put("itemName", order.getItemName());
             variables.put("rating", rating);
-            variables.put("dashboardUrl", "https://f-carshipping.com/dashboard/orders/" + order.getId());
+            variables.put("dashboardUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/" + order.getId());
 
             String subject = "Thank You for Your Review! - f-carshipping.com";
             sendHtmlEmail(order.getClientEmail(), subject, "review-thank-you", variables);
@@ -377,7 +377,7 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(to);
-            helper.setFrom("reviews@f-carshipping.com");
+            helper.setFrom("info@f-carshipping.com");
             helper.setSubject(subject);
             helper.setText(htmlContent, true);
 

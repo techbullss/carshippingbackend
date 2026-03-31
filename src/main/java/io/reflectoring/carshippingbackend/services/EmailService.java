@@ -4,7 +4,6 @@ import io.reflectoring.carshippingbackend.tables.ItemRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -38,14 +37,13 @@ public class EmailService {
     @Value("${app.company.name:F-Car Shipping}")
     private String companyName;
 
-    @Value("${app.support.email:support@f-carshipping.com}")
-    private String supportEmail;
+    // Single email address for all communications
+    private static final String FROM_EMAIL = "info@f-carshipping.com";
+    private static final String FROM_NAME = "F-Car Shipping";
 
+    // Admin email for notifications
     @Value("${app.admin.email:admin@f-carshipping.com}")
     private String adminEmail;
-
-    @Value("${app.reviews.email:reviews@f-carshipping.com}")
-    private String reviewsEmail;
 
     // Rate limiting to prevent spam flags (max 5 emails per hour per recipient)
     private final Map<String, AtomicInteger> rateLimiter = new ConcurrentHashMap<>();
@@ -56,7 +54,7 @@ public class EmailService {
     private final Map<String, Integer> failedEmailCount = new ConcurrentHashMap<>();
     private static final int MAX_FAILURES_BEFORE_ALERT = 10;
 
-    // ============= EXISTING METHODS (Improved with better error handling) =============
+    // ============= EXISTING METHODS =============
 
     @Async
     public void sendVerificationEmail(String to, String code) {
@@ -120,7 +118,7 @@ public class EmailService {
                 
                 ---
                 %s
-                """, firstName, companyName, appDomain, supportEmail, companyName, appDomain);
+                """, firstName, companyName, appDomain, FROM_EMAIL, companyName, appDomain);
 
             sendPlainTextEmail(to, subject, content);
             log.info("Approval email sent successfully to {}", to);
@@ -141,7 +139,7 @@ public class EmailService {
         sendPlainTextEmail(to, subject, content);
     }
 
-    // ============= IMPROVED ORDER EMAILS =============
+    // ============= ORDER EMAILS =============
 
     @Async
     public void sendOrderConfirmationEmail(ItemRequest order) {
@@ -158,11 +156,10 @@ public class EmailService {
             variables.put("orderDate", formatDate(order.getCreatedAt()));
             variables.put("appDomain", appDomain);
             variables.put("companyName", companyName);
-            variables.put("supportEmail", supportEmail);
+            variables.put("supportEmail", FROM_EMAIL);
 
             String subject = String.format("Order Confirmed - %s", order.getRequestId());
 
-            // Try HTML first, fallback to plain text
             boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "order-confirmation-safe", variables);
             if (!sent) {
                 sendOrderConfirmationPlainText(order);
@@ -193,6 +190,7 @@ public class EmailService {
             variables.put("updatedDate", formatDate(order.getUpdatedAt()));
             variables.put("appDomain", appDomain);
             variables.put("companyName", companyName);
+            variables.put("supportEmail", FROM_EMAIL);
 
             // Add review link only for delivered orders
             if ("DELIVERED".equals(order.getStatus())) {
@@ -236,7 +234,7 @@ public class EmailService {
             variables.put("reviewUrl", reviewUrl);
             variables.put("companyName", companyName);
             variables.put("appDomain", appDomain);
-            variables.put("supportEmail", supportEmail);
+            variables.put("supportEmail", FROM_EMAIL);
 
             String subject = String.format("Share your experience with %s", order.getItemName());
 
@@ -282,7 +280,7 @@ public class EmailService {
                     rating,
                     order.getItemName(),
                     companyName,
-                    supportEmail,
+                    FROM_EMAIL,
                     appDomain
             );
 
@@ -295,7 +293,7 @@ public class EmailService {
         }
     }
 
-    // ============= CANCELLATION EMAILS (Plain Text Only) =============
+    // ============= CANCELLATION EMAILS =============
 
     @Async
     public void sendOrderCancelledByClientEmail(ItemRequest order) {
@@ -330,7 +328,7 @@ public class EmailService {
                     order.getItemName(),
                     formatDate(order.getUpdatedAt()),
                     order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified",
-                    supportEmail,
+                    FROM_EMAIL,
                     companyName,
                     appDomain
             );
@@ -404,7 +402,7 @@ public class EmailService {
                     order.getItemName(),
                     formatDate(order.getUpdatedAt()),
                     order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified",
-                    supportEmail,
+                    FROM_EMAIL,
                     companyName,
                     appDomain
             );
@@ -421,7 +419,7 @@ public class EmailService {
         }
     }
 
-    // ============= EDIT EMAILS (Plain Text Only) =============
+    // ============= EDIT EMAILS =============
 
     @Async
     public void sendOrderEditedByClientEmail(ItemRequest order, Map<String, String> changes) {
@@ -465,7 +463,7 @@ public class EmailService {
                     formatDate(order.getUpdatedAt()),
                     changesText.toString(),
                     appDomain,
-                    supportEmail,
+                    FROM_EMAIL,
                     companyName,
                     appDomain
             );
@@ -549,7 +547,7 @@ public class EmailService {
                     formatStatus(order.getStatus()),
                     formatDate(order.getUpdatedAt()),
                     appDomain,
-                    supportEmail,
+                    FROM_EMAIL,
                     companyName,
                     appDomain
             );
@@ -579,12 +577,12 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(to);
-            helper.setFrom("info@f-carshipping.com", companyName);
+            helper.setFrom(FROM_EMAIL, FROM_NAME);
             helper.setSubject(subject);
             helper.setText(htmlContent, true);
 
             // Add essential headers for deliverability
-            message.setHeader("X-Mailer", companyName);
+            message.setHeader("X-Mailer", FROM_NAME);
             message.setHeader("X-Entity-Ref-ID", UUID.randomUUID().toString());
             message.setHeader("Message-ID", String.format("<%s@%s>", UUID.randomUUID(), getDomain()));
             message.setHeader("List-Unsubscribe", String.format("<%s/unsubscribe?email=%s>", appDomain, to));
@@ -605,12 +603,12 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
 
             helper.setTo(to);
-            helper.setFrom("info@f-carshipping.com", companyName);
+            helper.setFrom(FROM_EMAIL, FROM_NAME);
             helper.setSubject(subject);
             helper.setText(content);
 
             // Add essential headers
-            message.setHeader("X-Mailer", companyName);
+            message.setHeader("X-Mailer", FROM_NAME);
             message.setHeader("X-Entity-Ref-ID", UUID.randomUUID().toString());
 
             mailSender.send(message);
@@ -652,7 +650,7 @@ public class EmailService {
                     formatDate(order.getCreatedAt()),
                     companyName,
                     appDomain,
-                    supportEmail,
+                    FROM_EMAIL,
                     appDomain
             );
 
@@ -739,7 +737,7 @@ public class EmailService {
                     order.getRequestId(),
                     reviewUrl,
                     companyName,
-                    supportEmail
+                    FROM_EMAIL
             );
 
             sendPlainTextEmail(order.getClientEmail(),
@@ -779,7 +777,6 @@ public class EmailService {
 
         if (failures >= MAX_FAILURES_BEFORE_ALERT) {
             log.error("High failure rate for email {}: {} failures", email, failures);
-            // Could send alert to admin here
             failedEmailCount.remove(email); // Reset after alert
         }
     }

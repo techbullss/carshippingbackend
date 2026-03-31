@@ -3,6 +3,8 @@ package io.reflectoring.carshippingbackend.services;
 import io.reflectoring.carshippingbackend.tables.ItemRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -16,10 +18,11 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDate;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Service
@@ -29,344 +32,543 @@ public class EmailService {
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
 
-    // ============= EXISTING METHODS =============
+    @Value("${app.domain:https://f-carshipping.com}")
+    private String appDomain;
+
+    @Value("${app.company.name:F-Car Shipping}")
+    private String companyName;
+
+    @Value("${app.support.email:support@f-carshipping.com}")
+    private String supportEmail;
+
+    @Value("${app.admin.email:admin@f-carshipping.com}")
+    private String adminEmail;
+
+    @Value("${app.reviews.email:reviews@f-carshipping.com}")
+    private String reviewsEmail;
+
+    // Rate limiting to prevent spam flags (max 5 emails per hour per recipient)
+    private final Map<String, AtomicInteger> rateLimiter = new ConcurrentHashMap<>();
+    private final Map<String, LocalDateTime> rateLimiterReset = new ConcurrentHashMap<>();
+    private static final int MAX_EMAILS_PER_HOUR = 5;
+
+    // Track failed emails for monitoring
+    private final Map<String, Integer> failedEmailCount = new ConcurrentHashMap<>();
+    private static final int MAX_FAILURES_BEFORE_ALERT = 10;
+
+    // ============= EXISTING METHODS (Improved with better error handling) =============
+
     @Async
     public void sendVerificationEmail(String to, String code) {
+        if (!checkRateLimit(to)) {
+            log.warn("Rate limit exceeded for verification email to {}", to);
+            return;
+        }
+
         try {
-            String subject = "Verify your email address - f-carshipping.com";
-            String content = """
+            String subject = "Verify your email address - " + companyName;
+            String content = String.format("""
                     Dear user,
 
-                    Thank you for signing up with f-carshipping.com.
+                    Thank you for signing up with %s.
                     Your verification code is: %s
 
                     Please enter this code to verify your account.
 
+                    If you didn't request this, please ignore this email.
+
                     Regards,
-                    The f-carshipping Team
-                    """.formatted(code);
+                    The %s Team
+                    
+                    ---
+                    %s
+                    """, companyName, code, companyName, appDomain);
 
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setFrom("info@f-carshipping.com");
-            message.setSubject(subject);
-            message.setText(content);
-
-            mailSender.send(message);
+            sendPlainTextEmail(to, subject, content);
             log.info("Verification email sent successfully to {}", to);
 
         } catch (Exception e) {
             log.error("Failed to send verification email to {}: {}", to, e.getMessage());
+            trackFailure(to);
         }
     }
 
     @Async
     public void sendApprovalEmail(String to, String firstName) {
-        try {
-            String subject = "Your Account Has Been Approved - f-carshipping.com";
+        if (!checkRateLimit(to)) {
+            log.warn("Rate limit exceeded for approval email to {}", to);
+            return;
+        }
 
-            String content = """
+        try {
+            String subject = "Your Account Has Been Approved - " + companyName;
+            String content = String.format("""
                 Dear %s,
 
                 Congratulations! 
 
                 Your account has been successfully approved.
-                You can now log in and start using all features of f-carshipping.com.
+                You can now log in and start using all features of %s.
 
                 Login here:
-                https://f-carshipping.com/Login
+                %s/Login
 
-                If you have any questions, feel free to contact us.
+                If you have any questions, feel free to contact us at %s.
 
                 Regards,
-                The f-carshipping Team
-                """.formatted(firstName);
+                The %s Team
+                
+                ---
+                %s
+                """, firstName, companyName, appDomain, supportEmail, companyName, appDomain);
 
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setFrom("info@f-carshipping.com");
-            message.setSubject(subject);
-            message.setText(content);
-
-            mailSender.send(message);
+            sendPlainTextEmail(to, subject, content);
             log.info("Approval email sent successfully to {}", to);
 
         } catch (Exception e) {
             log.error("Failed to send approval email to {}: {}", to, e.getMessage());
+            trackFailure(to);
         }
     }
 
     @Async
     public void sendSimpleMessage(String to, String subject, String content) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setFrom("info@f-carshipping.com");
-            message.setSubject(subject);
-            message.setText(content);
-
-            mailSender.send(message);
-            log.info("Email sent successfully to {}", to);
-
-        } catch (Exception e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
+        if (!checkRateLimit(to)) {
+            log.warn("Rate limit exceeded for simple message to {}", to);
+            return;
         }
+
+        sendPlainTextEmail(to, subject, content);
     }
 
-    // ============= NEW REQUIRED METHODS =============
+    // ============= IMPROVED ORDER EMAILS =============
 
-    // Send order confirmation email with review link
     @Async
     public void sendOrderConfirmationEmail(ItemRequest order) {
-        try {
-            String reviewLink = generateReviewLink(order);
+        if (!checkRateLimit(order.getClientEmail())) {
+            log.warn("Rate limit exceeded for order confirmation to {}", order.getClientEmail());
+            return;
+        }
 
+        try {
             Map<String, Object> variables = new HashMap<>();
             variables.put("clientName", order.getClientName());
             variables.put("requestId", order.getRequestId());
             variables.put("itemName", order.getItemName());
-            variables.put("orderDate", order.getCreatedAt().toLocalDate().toString());
-            variables.put("orderUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/" );
-            variables.put("reviewLink", reviewLink);
+            variables.put("orderDate", formatDate(order.getCreatedAt()));
+            variables.put("appDomain", appDomain);
+            variables.put("companyName", companyName);
+            variables.put("supportEmail", supportEmail);
 
-            String subject = String.format("Order Confirmed - Request ID: %s", order.getRequestId());
-            sendHtmlEmail(order.getClientEmail(), subject, "order-confirmation", variables);
+            String subject = String.format("Order Confirmed - %s", order.getRequestId());
 
-            log.info("Order confirmation email sent to {} for order {}",
-                    order.getClientEmail(), order.getRequestId());
+            // Try HTML first, fallback to plain text
+            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "order-confirmation-safe", variables);
+            if (!sent) {
+                sendOrderConfirmationPlainText(order);
+            }
+
+            log.info("Order confirmation sent to {}", order.getClientEmail());
 
         } catch (Exception e) {
-            log.error("Failed to send order confirmation email: {}", e.getMessage());
+            log.error("Failed to send order confirmation: {}", e.getMessage());
+            sendOrderConfirmationPlainText(order);
+            trackFailure(order.getClientEmail());
         }
     }
 
-    // Send status update email with review link
     @Async
     public void sendStatusUpdateEmail(ItemRequest order) {
-        try {
-            String reviewLink = generateReviewLink(order);
+        if (!checkRateLimit(order.getClientEmail())) {
+            log.warn("Rate limit exceeded for status update to {}", order.getClientEmail());
+            return;
+        }
 
+        try {
             Map<String, Object> variables = new HashMap<>();
             variables.put("clientName", order.getClientName());
             variables.put("requestId", order.getRequestId());
             variables.put("itemName", order.getItemName());
-            variables.put("newStatus", order.getStatus());
-            variables.put("updatedDate", LocalDate.now().toString());
-            variables.put("orderUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/");
-            variables.put("reviewLink", reviewLink);
+            variables.put("newStatus", formatStatus(order.getStatus()));
+            variables.put("updatedDate", formatDate(order.getUpdatedAt()));
+            variables.put("appDomain", appDomain);
+            variables.put("companyName", companyName);
 
-            String subject = String.format("Order Status Updated - Request ID: %s", order.getRequestId());
-            sendHtmlEmail(order.getClientEmail(), subject, "order-status-updated", variables);
+            // Add review link only for delivered orders
+            if ("DELIVERED".equals(order.getStatus())) {
+                String reviewLink = generateCleanReviewLink(order);
+                variables.put("reviewLink", reviewLink);
+                variables.put("showReviewLink", true);
+            }
 
-            log.info("Status update email sent to {} for order {}",
-                    order.getClientEmail(), order.getRequestId());
+            String subject = String.format("Order Update - %s", order.getRequestId());
+
+            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "order-status-updated-safe", variables);
+            if (!sent) {
+                sendStatusUpdatePlainText(order);
+            }
+
+            log.info("Status update sent to {}", order.getClientEmail());
 
         } catch (Exception e) {
-            log.error("Failed to send status update email: {}", e.getMessage());
+            log.error("Failed to send status update: {}", e.getMessage());
+            sendStatusUpdatePlainText(order);
+            trackFailure(order.getClientEmail());
         }
     }
 
-    // Send review request email (your existing method)
     @Async
     public void sendReviewRequestEmail(ItemRequest order) {
-        try {
-            String token = generateSecureToken(order);
-            String encodedItemName = URLEncoder.encode(order.getItemName(), StandardCharsets.UTF_8);
-            String encodedClientName = URLEncoder.encode(order.getClientName(), StandardCharsets.UTF_8);
-            String encodedEmail = URLEncoder.encode(order.getClientEmail(), StandardCharsets.UTF_8);
+        if (!checkRateLimit(order.getClientEmail())) {
+            log.warn("Rate limit exceeded for review request to {}", order.getClientEmail());
+            return;
+        }
 
-            String reviewUrl = String.format(
-                    "https://f-carshipping.com/Reviews?orderId=%d&token=%s&item=%s&client=%s&email=%s",
-                    order.getId(),
-                    token,
-                    encodedItemName,
-                    encodedClientName,
-                    encodedEmail
-            );
+        try {
+            String token = generateShortToken(order);
+            String reviewUrl = String.format("%s/reviews/%s", appDomain, token);
 
             Map<String, Object> variables = new HashMap<>();
             variables.put("clientName", order.getClientName());
             variables.put("itemName", order.getItemName());
             variables.put("requestId", order.getRequestId());
-            variables.put("orderId", order.getId());
-            variables.put("orderDate", order.getCreatedAt().toLocalDate().toString());
+            variables.put("orderDate", formatDate(order.getCreatedAt()));
             variables.put("reviewUrl", reviewUrl);
+            variables.put("companyName", companyName);
+            variables.put("appDomain", appDomain);
+            variables.put("supportEmail", supportEmail);
 
-            String subject = String.format("How was your experience with %s? - f-carshipping.com",
-                    order.getItemName());
+            String subject = String.format("Share your experience with %s", order.getItemName());
 
-            sendHtmlEmail(order.getClientEmail(), subject, "review-request", variables);
+            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "review-request-safe", variables);
+            if (!sent) {
+                sendReviewRequestPlainText(order, reviewUrl);
+            }
 
-            log.info("Review request email sent to {} for order {}",
-                    order.getClientEmail(), order.getRequestId());
+            log.info("Review request sent to {}", order.getClientEmail());
 
         } catch (Exception e) {
-            log.error("Failed to send review request email: {}", e.getMessage());
+            log.error("Failed to send review request: {}", e.getMessage());
+            String token = generateShortToken(order);
+            String reviewUrl = String.format("%s/reviews/%s", appDomain, token);
+            sendReviewRequestPlainText(order, reviewUrl);
+            trackFailure(order.getClientEmail());
         }
     }
 
-    // Send order cancelled by client notification
+    @Async
+    public void sendReviewThankYouEmail(ItemRequest order, int rating) {
+        if (!checkRateLimit(order.getClientEmail())) {
+            log.warn("Rate limit exceeded for thank you email to {}", order.getClientEmail());
+            return;
+        }
+
+        try {
+            String content = String.format("""
+                Dear %s,
+                
+                Thank you for your %d-star review of %s!
+                
+                Your feedback helps us serve you better and helps other customers make informed decisions.
+                
+                Best regards,
+                %s Team
+                
+                ---
+                Need help? Contact us: %s
+                Visit us: %s
+                """,
+                    order.getClientName(),
+                    rating,
+                    order.getItemName(),
+                    companyName,
+                    supportEmail,
+                    appDomain
+            );
+
+            sendPlainTextEmail(order.getClientEmail(), "Thank You for Your Review!", content);
+            log.info("Thank you email sent to {}", order.getClientEmail());
+
+        } catch (Exception e) {
+            log.error("Failed to send thank you: {}", e.getMessage());
+            trackFailure(order.getClientEmail());
+        }
+    }
+
+    // ============= CANCELLATION EMAILS (Plain Text Only) =============
+
     @Async
     public void sendOrderCancelledByClientEmail(ItemRequest order) {
+        if (!checkRateLimit(order.getClientEmail())) {
+            log.warn("Rate limit exceeded for cancellation email to {}", order.getClientEmail());
+            return;
+        }
+
         try {
-            String reviewLink = generateReviewLink(order);
+            String content = String.format("""
+                Dear %s,
+                
+                Your order %s has been cancelled.
+                
+                Order Details:
+                - Order #: %s
+                - Item: %s
+                - Cancellation date: %s
+                - Reason: %s
+                
+                If you have any questions, please contact us at %s.
+                
+                Best regards,
+                %s Team
+                
+                ---
+                %s
+                """,
+                    order.getClientName(),
+                    order.getRequestId(),
+                    order.getRequestId(),
+                    order.getItemName(),
+                    formatDate(order.getUpdatedAt()),
+                    order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified",
+                    supportEmail,
+                    companyName,
+                    appDomain
+            );
 
-            // Email to client with review link
-            Map<String, Object> clientVariables = new HashMap<>();
-            clientVariables.put("clientName", order.getClientName());
-            clientVariables.put("requestId", order.getRequestId());
-            clientVariables.put("itemName", order.getItemName());
-            clientVariables.put("cancelledDate", LocalDate.now().toString());
-            clientVariables.put("cancellationReason",
-                    order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified");
-            clientVariables.put("reviewLink", reviewLink);
+            sendPlainTextEmail(order.getClientEmail(),
+                    String.format("Order Cancelled - %s", order.getRequestId()),
+                    content);
 
-            String clientSubject = String.format("Order Cancelled - Request ID: %s", order.getRequestId());
-            sendHtmlEmail(order.getClientEmail(), clientSubject, "order-cancelled-client", clientVariables);
+            // Notify admin
+            String adminContent = String.format("""
+                Client %s (%s) has cancelled order %s.
+                
+                Order Details:
+                - Item: %s
+                - Cancellation reason: %s
+                - Date: %s
+                
+                View in admin panel: %s/admin/requests
+                """,
+                    order.getClientName(),
+                    order.getClientEmail(),
+                    order.getRequestId(),
+                    order.getItemName(),
+                    order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified",
+                    formatDate(order.getUpdatedAt()),
+                    appDomain
+            );
 
-            // Email to admin
-            Map<String, Object> adminVariables = new HashMap<>();
-            adminVariables.put("clientName", order.getClientName());
-            adminVariables.put("clientEmail", order.getClientEmail());
-            adminVariables.put("requestId", order.getRequestId());
-            adminVariables.put("itemName", order.getItemName());
-            adminVariables.put("cancelledDate", LocalDate.now().toString());
-            adminVariables.put("adminUrl", "https://f-carshipping.com/dashboard/AdminRequestsPage/");
+            sendPlainTextEmail(adminEmail,
+                    String.format("[ADMIN] Order Cancelled - %s", order.getRequestId()),
+                    adminContent);
 
-            String adminSubject = String.format("[ADMIN] Order Cancelled by Client - %s", order.getRequestId());
-            sendHtmlEmail("admin@f-carshipping.com", adminSubject, "order-cancelled-admin", adminVariables);
+            log.info("Cancellation emails sent for order {}", order.getRequestId());
 
         } catch (Exception e) {
             log.error("Failed to send cancellation emails: {}", e.getMessage());
+            trackFailure(order.getClientEmail());
         }
     }
 
-    // Send order cancelled by admin notification
     @Async
     public void sendOrderCancelledByAdminEmail(ItemRequest order) {
+        if (!checkRateLimit(order.getClientEmail())) {
+            log.warn("Rate limit exceeded for admin cancellation to {}", order.getClientEmail());
+            return;
+        }
+
         try {
-            String reviewLink = generateReviewLink(order);
+            String content = String.format("""
+                Dear %s,
+                
+                Your order %s has been cancelled by our team.
+                
+                Order Details:
+                - Order #: %s
+                - Item: %s
+                - Cancellation date: %s
+                - Reason: %s
+                
+                If you have any questions or concerns, please contact us at %s.
+                
+                Best regards,
+                %s Team
+                
+                ---
+                %s
+                """,
+                    order.getClientName(),
+                    order.getRequestId(),
+                    order.getRequestId(),
+                    order.getItemName(),
+                    formatDate(order.getUpdatedAt()),
+                    order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified",
+                    supportEmail,
+                    companyName,
+                    appDomain
+            );
 
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("clientName", order.getClientName());
-            variables.put("requestId", order.getRequestId());
-            variables.put("itemName", order.getItemName());
-            variables.put("cancelledDate", LocalDate.now().toString());
-            variables.put("cancellationReason",
-                    order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified");
-            variables.put("reviewLink", reviewLink);
+            sendPlainTextEmail(order.getClientEmail(),
+                    String.format("Order Cancelled - %s", order.getRequestId()),
+                    content);
 
-            String subject = String.format("Your Order Has Been Cancelled - Request ID: %s", order.getRequestId());
-            sendHtmlEmail(order.getClientEmail(), subject, "order-cancelled-admin", variables);
+            log.info("Admin cancellation email sent to {}", order.getClientEmail());
 
         } catch (Exception e) {
             log.error("Failed to send admin cancellation email: {}", e.getMessage());
+            trackFailure(order.getClientEmail());
         }
     }
 
-    // Send order edited by client notification
+    // ============= EDIT EMAILS (Plain Text Only) =============
+
     @Async
     public void sendOrderEditedByClientEmail(ItemRequest order, Map<String, String> changes) {
+        if (!checkRateLimit(order.getClientEmail())) {
+            log.warn("Rate limit exceeded for edit email to {}", order.getClientEmail());
+            return;
+        }
+
         try {
-            String reviewLink = generateReviewLink(order);
+            StringBuilder changesText = new StringBuilder();
+            if (changes != null && !changes.isEmpty()) {
+                changesText.append("\nChanges made:\n");
+                changes.forEach((field, change) ->
+                        changesText.append("- ").append(field).append(": ").append(change).append("\n"));
+            }
 
-            // Email to client with review link
-            Map<String, Object> clientVariables = new HashMap<>();
-            clientVariables.put("clientName", order.getClientName());
-            clientVariables.put("requestId", order.getRequestId());
-            clientVariables.put("itemName", order.getItemName());
-            clientVariables.put("updatedDate", LocalDate.now().toString());
-            clientVariables.put("orderUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/");
-            clientVariables.put("reviewLink", reviewLink);
+            String content = String.format("""
+                Dear %s,
+                
+                Your order %s has been updated successfully.
+                
+                Updated Order:
+                - Order #: %s
+                - Item: %s
+                - Updated: %s%s
+                
+                View your order: %s/dashboard/UserOrdersPage/
+                
+                If you need to make further changes, please contact us at %s.
+                
+                Best regards,
+                %s Team
+                
+                ---
+                %s
+                """,
+                    order.getClientName(),
+                    order.getRequestId(),
+                    order.getRequestId(),
+                    order.getItemName(),
+                    formatDate(order.getUpdatedAt()),
+                    changesText.toString(),
+                    appDomain,
+                    supportEmail,
+                    companyName,
+                    appDomain
+            );
 
-            String clientSubject = String.format("Order Updated - Request ID: %s", order.getRequestId());
-            sendHtmlEmail(order.getClientEmail(), clientSubject, "order-edited-client", clientVariables);
+            sendPlainTextEmail(order.getClientEmail(),
+                    String.format("Order Updated - %s", order.getRequestId()),
+                    content);
 
-            // Email to admin with changes
-            Map<String, Object> adminVariables = new HashMap<>();
-            adminVariables.put("clientName", order.getClientName());
-            adminVariables.put("clientEmail", order.getClientEmail());
-            adminVariables.put("requestId", order.getRequestId());
-            adminVariables.put("itemName", order.getItemName());
-            adminVariables.put("updatedDate", LocalDate.now().toString());
-            adminVariables.put("adminUrl", "https://f-carshipping.com/admin/UserOrdersPage/" );
-            adminVariables.put("changes", changes);
+            // Notify admin
+            StringBuilder adminChanges = new StringBuilder();
+            if (changes != null && !changes.isEmpty()) {
+                changes.forEach((field, change) ->
+                        adminChanges.append("- ").append(field).append(": ").append(change).append("\n"));
+            }
 
-            String adminSubject = String.format("[ADMIN] Order Updated by Client - %s", order.getRequestId());
-            sendHtmlEmail("bwanamaina2010@gmail.com", adminSubject, "order-edited-admin", adminVariables);
+            String adminContent = String.format("""
+                Client %s (%s) has updated order %s.
+                
+                Updated Order:
+                - Item: %s
+                - Updated: %s
+                %s
+                
+                View in admin panel: %s/admin/requests/%d
+                """,
+                    order.getClientName(),
+                    order.getClientEmail(),
+                    order.getRequestId(),
+                    order.getItemName(),
+                    formatDate(order.getUpdatedAt()),
+                    adminChanges.toString(),
+                    appDomain,
+                    order.getId()
+            );
+
+            sendPlainTextEmail(adminEmail,
+                    String.format("[ADMIN] Order Updated - %s", order.getRequestId()),
+                    adminContent);
+
+            log.info("Order edit emails sent for order {}", order.getRequestId());
 
         } catch (Exception e) {
             log.error("Failed to send order edit emails: {}", e.getMessage());
+            trackFailure(order.getClientEmail());
         }
     }
 
-    // Send order edited by admin notification
     @Async
     public void sendOrderEditedByAdminEmail(ItemRequest order) {
+        if (!checkRateLimit(order.getClientEmail())) {
+            log.warn("Rate limit exceeded for admin edit email to {}", order.getClientEmail());
+            return;
+        }
+
         try {
-            String reviewLink = generateReviewLink(order);
+            String content = String.format("""
+                Dear %s,
+                
+                Your order %s has been updated by our team.
+                
+                Updated Order:
+                - Order #: %s
+                - Item: %s
+                - New Status: %s
+                - Updated: %s
+                
+                View your order: %s/dashboard/UserOrdersPage/
+                
+                If you have any questions, please contact us at %s.
+                
+                Best regards,
+                %s Team
+                
+                ---
+                %s
+                """,
+                    order.getClientName(),
+                    order.getRequestId(),
+                    order.getRequestId(),
+                    order.getItemName(),
+                    formatStatus(order.getStatus()),
+                    formatDate(order.getUpdatedAt()),
+                    appDomain,
+                    supportEmail,
+                    companyName,
+                    appDomain
+            );
 
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("clientName", order.getClientName());
-            variables.put("requestId", order.getRequestId());
-            variables.put("itemName", order.getItemName());
-            variables.put("newStatus", order.getStatus());
-            variables.put("updatedDate", LocalDate.now().toString());
-            variables.put("orderUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/");
-            variables.put("reviewLink", reviewLink);
+            sendPlainTextEmail(order.getClientEmail(),
+                    String.format("Order Updated - %s", order.getRequestId()),
+                    content);
 
-            String subject = String.format("Your Order Has Been Updated - Request ID: %s", order.getRequestId());
-            sendHtmlEmail(order.getClientEmail(), subject, "order-edited-by-admin", variables);
+            log.info("Admin edit email sent to {}", order.getClientEmail());
 
         } catch (Exception e) {
             log.error("Failed to send admin edit email: {}", e.getMessage());
+            trackFailure(order.getClientEmail());
         }
     }
 
-    // Send thank you email after review
-    @Async
-    public void sendReviewThankYouEmail(ItemRequest order, int rating) {
-        try {
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("clientName", order.getClientName());
-            variables.put("itemName", order.getItemName());
-            variables.put("rating", rating);
-            variables.put("dashboardUrl", "https://f-carshipping.com/dashboard/UserOrdersPage/" );
+    // ============= CORE EMAIL SENDING METHODS =============
 
-            String subject = "Thank You for Your Review! - f-carshipping.com";
-            sendHtmlEmail(order.getClientEmail(), subject, "review-thank-you", variables);
-
-        } catch (Exception e) {
-            log.error("Failed to send thank you email: {}", e.getMessage());
-        }
-    }
-
-    // ============= HELPER METHODS =============
-
-    // Generate review link for any email
-    private String generateReviewLink(ItemRequest order) {
-        try {
-            String token = generateSecureToken(order);
-            String encodedItemName = URLEncoder.encode(order.getItemName(), StandardCharsets.UTF_8);
-            String encodedClientName = URLEncoder.encode(order.getClientName(), StandardCharsets.UTF_8);
-            String encodedEmail = URLEncoder.encode(order.getClientEmail(), StandardCharsets.UTF_8);
-
-            return String.format(
-                    "https://f-carshipping.com/Reviews?orderId=%d&token=%s&item=%s&client=%s&email=%s",
-                    order.getId(),
-                    token,
-                    encodedItemName,
-                    encodedClientName,
-                    encodedEmail
-            );
-        } catch (Exception e) {
-            log.error("Failed to generate review link: {}", e.getMessage());
-            return "https://f-carshipping.com/reviews";
-        }
-    }
-
-    // Helper method to send HTML emails
-    private void sendHtmlEmail(String to, String subject, String templateName, Map<String, Object> variables) {
+    private boolean sendSpamSafeHtmlEmail(String to, String subject, String templateName, Map<String, Object> variables) {
         try {
             Context context = new Context();
             context.setVariables(variables);
@@ -377,41 +579,255 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(to);
-            helper.setFrom("info@f-carshipping.com");
+            helper.setFrom("info@f-carshipping.com", companyName);
             helper.setSubject(subject);
             helper.setText(htmlContent, true);
 
+            // Add essential headers for deliverability
+            message.setHeader("X-Mailer", companyName);
+            message.setHeader("X-Entity-Ref-ID", UUID.randomUUID().toString());
+            message.setHeader("Message-ID", String.format("<%s@%s>", UUID.randomUUID(), getDomain()));
+            message.setHeader("List-Unsubscribe", String.format("<%s/unsubscribe?email=%s>", appDomain, to));
+
             mailSender.send(message);
-            log.info("HTML email sent successfully to {} using template {}", to, templateName);
+            log.info("Spam-safe HTML email sent to {} using template {}", to, templateName);
+            return true;
 
         } catch (Exception e) {
             log.error("Failed to send HTML email to {}: {}", to, e.getMessage());
-
-            // Fallback to plain text
-            try {
-                String fallbackContent = "Please visit https://f-carshipping.com to view this message.";
-                SimpleMailMessage fallback = new SimpleMailMessage();
-                fallback.setTo(to);
-                fallback.setFrom("info@f-carshipping.com");
-                fallback.setSubject(subject);
-                fallback.setText(fallbackContent);
-                mailSender.send(fallback);
-            } catch (Exception ex) {
-                log.error("Even fallback email failed: {}", ex.getMessage());
-            }
+            return false;
         }
     }
 
-    // Generate secure token for review links
-    private String generateSecureToken(ItemRequest order) {
-        String data = order.getId() + order.getClientEmail() + order.getRequestId() + "your-secret-salt-2024";
+    private void sendPlainTextEmail(String to, String subject, String content) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+
+            helper.setTo(to);
+            helper.setFrom("info@f-carshipping.com", companyName);
+            helper.setSubject(subject);
+            helper.setText(content);
+
+            // Add essential headers
+            message.setHeader("X-Mailer", companyName);
+            message.setHeader("X-Entity-Ref-ID", UUID.randomUUID().toString());
+
+            mailSender.send(message);
+            log.info("Plain text email sent to {}", to);
+
+        } catch (Exception e) {
+            log.error("Failed to send plain text email to {}: {}", to, e.getMessage());
+            throw new RuntimeException("Email sending failed", e);
+        }
+    }
+
+    // ============= FALLBACK PLAIN TEXT METHODS =============
+
+    private void sendOrderConfirmationPlainText(ItemRequest order) {
+        try {
+            String content = String.format("""
+                Dear %s,
+                
+                Your order has been confirmed!
+                
+                Order #: %s
+                Item: %s
+                Date: %s
+                
+                We'll notify you when your order status changes.
+                
+                Thank you for choosing %s!
+                
+                View your order: %s/dashboard/UserOrdersPage/
+                
+                Questions? Contact us: %s
+                
+                ---
+                %s
+                """,
+                    order.getClientName(),
+                    order.getRequestId(),
+                    order.getItemName(),
+                    formatDate(order.getCreatedAt()),
+                    companyName,
+                    appDomain,
+                    supportEmail,
+                    appDomain
+            );
+
+            sendPlainTextEmail(order.getClientEmail(),
+                    String.format("Order Confirmed - %s", order.getRequestId()),
+                    content);
+
+        } catch (Exception e) {
+            log.error("Order confirmation plain text failed: {}", e.getMessage());
+        }
+    }
+
+    private void sendStatusUpdatePlainText(ItemRequest order) {
+        try {
+            String reviewSection = "";
+            if ("DELIVERED".equals(order.getStatus())) {
+                String reviewLink = generateCleanReviewLink(order);
+                reviewSection = String.format("\n\nShare your experience: %s", reviewLink);
+            }
+
+            String content = String.format("""
+                Dear %s,
+                
+                Your order status has been updated.
+                
+                Order #: %s
+                Item: %s
+                New Status: %s
+                Date: %s
+                
+                View your order: %s/dashboard/UserOrdersPage/%s
+                %s
+                
+                Best regards,
+                %s Team
+                
+                ---
+                %s
+                """,
+                    order.getClientName(),
+                    order.getRequestId(),
+                    order.getItemName(),
+                    formatStatus(order.getStatus()),
+                    formatDate(order.getUpdatedAt()),
+                    appDomain,
+                    order.getId(),
+                    reviewSection,
+                    companyName,
+                    appDomain
+            );
+
+            sendPlainTextEmail(order.getClientEmail(),
+                    String.format("Order Update - %s", order.getRequestId()),
+                    content);
+
+        } catch (Exception e) {
+            log.error("Status update plain text failed: {}", e.getMessage());
+        }
+    }
+
+    private void sendReviewRequestPlainText(ItemRequest order, String reviewUrl) {
+        try {
+            String content = String.format("""
+                Dear %s,
+                
+                Thank you for ordering %s (Order #%s).
+                
+                We'd love to hear about your experience!
+                
+                Please share your feedback here:
+                %s
+                
+                Your feedback helps us improve and helps other customers make informed decisions.
+                
+                Thank you,
+                %s Team
+                
+                ---
+                Questions? Contact us: %s
+                If you didn't request this review, please ignore this email.
+                """,
+                    order.getClientName(),
+                    order.getItemName(),
+                    order.getRequestId(),
+                    reviewUrl,
+                    companyName,
+                    supportEmail
+            );
+
+            sendPlainTextEmail(order.getClientEmail(),
+                    String.format("Share your experience with %s", order.getItemName()),
+                    content);
+
+        } catch (Exception e) {
+            log.error("Review request plain text failed: {}", e.getMessage());
+        }
+    }
+
+    // ============= HELPER METHODS =============
+
+    private boolean checkRateLimit(String email) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime resetTime = rateLimiterReset.get(email);
+
+        if (resetTime == null || now.isAfter(resetTime)) {
+            // Reset counter
+            rateLimiter.put(email, new AtomicInteger(1));
+            rateLimiterReset.put(email, now.plusHours(1));
+            return true;
+        }
+
+        AtomicInteger counter = rateLimiter.get(email);
+        if (counter != null && counter.incrementAndGet() > MAX_EMAILS_PER_HOUR) {
+            log.warn("Rate limit exceeded for {}", email);
+            return false;
+        }
+
+        return true;
+    }
+
+    private void trackFailure(String email) {
+        int failures = failedEmailCount.getOrDefault(email, 0) + 1;
+        failedEmailCount.put(email, failures);
+
+        if (failures >= MAX_FAILURES_BEFORE_ALERT) {
+            log.error("High failure rate for email {}: {} failures", email, failures);
+            // Could send alert to admin here
+            failedEmailCount.remove(email); // Reset after alert
+        }
+    }
+
+    private String generateCleanReviewLink(ItemRequest order) {
+        String token = generateShortToken(order);
+        return String.format("%s/reviews/%s", appDomain, token);
+    }
+
+    private String generateShortToken(ItemRequest order) {
+        String data = order.getId() + order.getClientEmail() + order.getRequestId() + System.currentTimeMillis();
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] hash = md.digest(data.getBytes(StandardCharsets.UTF_8));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+            String fullHash = Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+            return fullHash.substring(0, 12).toLowerCase();
         } catch (Exception e) {
-            log.warn("Failed to generate secure token, using UUID: {}", e.getMessage());
-            return UUID.randomUUID().toString();
+            return UUID.randomUUID().toString().substring(0, 12);
         }
+    }
+
+    private String formatStatus(String status) {
+        if (status == null) return "Processing";
+        return switch (status) {
+            case "PENDING" -> "Pending Review";
+            case "SOURCING" -> "Sourcing";
+            case "IN_TRANSIT" -> "In Transit";
+            case "DELIVERED" -> "Delivered";
+            case "CANCELLED" -> "Cancelled";
+            default -> status;
+        };
+    }
+
+    private String formatDate(LocalDateTime dateTime) {
+        if (dateTime == null) return "N/A";
+        return dateTime.format(DateTimeFormatter.ofPattern("MMMM d, yyyy"));
+    }
+
+    private String getDomain() {
+        return appDomain.replace("https://", "").replace("http://", "");
+    }
+
+    // Keep original methods for backward compatibility
+    private String generateReviewLink(ItemRequest order) {
+        return generateCleanReviewLink(order);
+    }
+
+    private String generateSecureToken(ItemRequest order) {
+        return generateShortToken(order);
     }
 }

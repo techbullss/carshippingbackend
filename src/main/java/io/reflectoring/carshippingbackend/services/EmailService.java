@@ -106,66 +106,49 @@ public class EmailService {
 
     public void sendOrderConfirmationEmail(ItemRequest order) {
         try {
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("clientName", order.getClientName());
-            variables.put("requestId", order.getRequestId());
-            variables.put("itemName", order.getItemName());
-            variables.put("orderDate", formatDate(order.getCreatedAt()));
-            variables.put("appDomain", appDomain);
-            variables.put("companyName", companyName);
-            variables.put("supportEmail", FROM_EMAIL);
-            variables.put("orderUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
-
             String reviewLink = generateCleanReviewLink(order);
-            variables.put("reviewLink", reviewLink);
-            variables.put("showReviewLink", true);
 
-            String subject = String.format("Order Confirmed - %s", order.getRequestId());
+            String htmlContent = buildHtmlEmail(
+                    "#059669",
+                    "Order Confirmed! 🎉",
+                    order,
+                    null,
+                    null,
+                    reviewLink,
+                    true
+            );
 
-            boolean sent = sendHtmlEmail(order.getClientEmail(), subject, "order-confirmation", variables);
-            if (!sent) {
-                sendOrderConfirmationPlainText(order, reviewLink);
-            }
-
-            log.info("Order confirmation sent to {}", order.getClientEmail());
+            sendHtmlEmail(order.getClientEmail(),
+                    String.format("Order Confirmed - %s", order.getRequestId()),
+                    htmlContent);
 
         } catch (Exception e) {
             log.error("Failed to send order confirmation: {}", e.getMessage());
-            String reviewLink = generateCleanReviewLink(order);
-            sendOrderConfirmationPlainText(order, reviewLink);
+            sendOrderConfirmationPlainText(order, generateCleanReviewLink(order));
         }
     }
 
     public void sendStatusUpdateEmail(ItemRequest order) {
         try {
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("clientName", order.getClientName());
-            variables.put("requestId", order.getRequestId());
-            variables.put("itemName", order.getItemName());
-            variables.put("newStatus", formatStatus(order.getStatus()));
-            variables.put("updatedDate", formatDate(order.getUpdatedAt()));
-            variables.put("appDomain", appDomain);
-            variables.put("companyName", companyName);
-            variables.put("supportEmail", FROM_EMAIL);
-            variables.put("orderUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
-
             String reviewLink = generateCleanReviewLink(order);
-            variables.put("reviewLink", reviewLink);
-            variables.put("showReviewLink", true);
 
-            String subject = String.format("Order Update - %s", order.getRequestId());
+            String htmlContent = buildHtmlEmail(
+                    "#3b82f6",
+                    "Order Status Updated",
+                    order,
+                    order.getStatus(),
+                    null,
+                    reviewLink,
+                    true
+            );
 
-            boolean sent = sendHtmlEmail(order.getClientEmail(), subject, "order-status-update", variables);
-            if (!sent) {
-                sendStatusUpdatePlainText(order, reviewLink);
-            }
-
-            log.info("Status update sent to {}", order.getClientEmail());
+            sendHtmlEmail(order.getClientEmail(),
+                    String.format("Order Update - %s", order.getRequestId()),
+                    htmlContent);
 
         } catch (Exception e) {
             log.error("Failed to send status update: {}", e.getMessage());
-            String reviewLink = generateCleanReviewLink(order);
-            sendStatusUpdatePlainText(order, reviewLink);
+            sendStatusUpdatePlainText(order, generateCleanReviewLink(order));
         }
     }
 
@@ -174,24 +157,48 @@ public class EmailService {
             String token = generateShortToken(order);
             String reviewUrl = String.format("%s/reviews/%s", appDomain, token);
 
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("clientName", order.getClientName());
-            variables.put("itemName", order.getItemName());
-            variables.put("requestId", order.getRequestId());
-            variables.put("orderDate", formatDate(order.getCreatedAt()));
-            variables.put("reviewUrl", reviewUrl);
-            variables.put("companyName", companyName);
-            variables.put("appDomain", appDomain);
-            variables.put("supportEmail", FROM_EMAIL);
+            String htmlContent = String.format("""
+                <!DOCTYPE html>
+                <html>
+                <body style="margin:0;padding:0;font-family:Arial,sans-serif;">
+                <div style="max-width:600px;margin:0 auto;padding:20px;">
+                    <div style="background-color:#059669;padding:30px;text-align:center;">
+                        <h1 style="margin:0;color:white;">How was your experience? 🌟</h1>
+                    </div>
+                    <div style="padding:30px;border:1px solid #e5e7eb;border-top:none;">
+                        <p>Dear <strong>%s</strong>,</p>
+                        <p>Thank you for your recent order of <strong>%s</strong>.</p>
+                        <div style="background-color:#f9fafb;padding:20px;margin:20px 0;">
+                            <p><strong>Order #:</strong> %s</p>
+                            <p><strong>Item:</strong> %s</p>
+                            <p><strong>Order Date:</strong> %s</p>
+                        </div>
+                        <p>We'd love to hear about your experience!</p>
+                        <div style="text-align:center;margin:30px 0;">
+                            <a href="%s" style="display:inline-block;background-color:#059669;color:white;padding:15px 40px;text-decoration:none;border-radius:8px;">Share Your Experience →</a>
+                        </div>
+                        <div style="margin-top:30px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#6b7280;">
+                            <p>Questions? Contact us at <a href="mailto:%s" style="color:#6b7280;">%s</a></p>
+                            <p><a href="%s" style="color:#6b7280;">f-carshipping.com</a></p>
+                        </div>
+                    </div>
+                </div>
+                </body>
+                </html>
+                """,
+                    order.getClientName(),
+                    order.getItemName(),
+                    order.getRequestId(),
+                    order.getItemName(),
+                    formatDate(order.getCreatedAt()),
+                    reviewUrl,
+                    FROM_EMAIL, FROM_EMAIL,
+                    appDomain
+            );
 
-            String subject = String.format("Share your experience with %s", order.getItemName());
-
-            boolean sent = sendHtmlEmail(order.getClientEmail(), subject, "review-request", variables);
-            if (!sent) {
-                sendReviewRequestPlainText(order, reviewUrl);
-            }
-
-            log.info("Review request sent to {}", order.getClientEmail());
+            sendHtmlEmail(order.getClientEmail(),
+                    String.format("Share your experience with %s", order.getItemName()),
+                    htmlContent);
 
         } catch (Exception e) {
             log.error("Failed to send review request: {}", e.getMessage());
@@ -203,23 +210,37 @@ public class EmailService {
 
     public void sendReviewThankYouEmail(ItemRequest order, int rating) {
         try {
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("clientName", order.getClientName());
-            variables.put("itemName", order.getItemName());
-            variables.put("rating", rating);
-            variables.put("companyName", companyName);
-            variables.put("appDomain", appDomain);
-            variables.put("dashboardUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
-            variables.put("supportEmail", FROM_EMAIL);
+            String stars = "★".repeat(rating) + "☆".repeat(5 - rating);
 
-            String subject = "Thank You for Your Review!";
+            String htmlContent = String.format("""
+                <!DOCTYPE html>
+                <html>
+                <body style="margin:0;padding:0;font-family:Arial,sans-serif;">
+                <div style="max-width:600px;margin:0 auto;padding:20px;">
+                    <div style="background:linear-gradient(135deg,#10b981,#059669);padding:40px;text-align:center;">
+                        <h1 style="margin:0;color:white;">Thank You! 🎉</h1>
+                    </div>
+                    <div style="padding:30px;text-align:center;">
+                        <div style="font-size:48px;color:#fbbf24;margin:20px 0;">%s</div>
+                        <div style="background-color:#f0fdf4;padding:20px;border-radius:8px;">
+                            <p style="font-size:18px;">Dear <strong>%s</strong>,</p>
+                            <p>Thank you for your %d-star review of <strong>%s</strong>!</p>
+                        </div>
+                        <p>Your feedback helps us improve our service!</p>
+                        <a href="%s/dashboard/UserOrdersPage/" style="display:inline-block;background-color:#059669;color:white;padding:12px 30px;text-decoration:none;border-radius:5px;margin-top:20px;">View Your Orders</a>
+                    </div>
+                </div>
+                </body>
+                </html>
+                """,
+                    stars,
+                    order.getClientName(),
+                    rating,
+                    order.getItemName(),
+                    appDomain
+            );
 
-            boolean sent = sendHtmlEmail(order.getClientEmail(), subject, "review-thankyou", variables);
-            if (!sent) {
-                sendReviewThankYouPlainText(order, rating);
-            }
-
-            log.info("Thank you email sent to {}", order.getClientEmail());
+            sendHtmlEmail(order.getClientEmail(), "Thank You for Your Review!", htmlContent);
 
         } catch (Exception e) {
             log.error("Failed to send thank you: {}", e.getMessage());
@@ -229,194 +250,219 @@ public class EmailService {
 
     public void sendOrderCancelledByClientEmail(ItemRequest order) {
         try {
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("clientName", order.getClientName());
-            variables.put("requestId", order.getRequestId());
-            variables.put("itemName", order.getItemName());
-            variables.put("cancellationDate", formatDate(order.getUpdatedAt()));
-            variables.put("cancellationReason", order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified");
-            variables.put("companyName", companyName);
-            variables.put("appDomain", appDomain);
-            variables.put("supportEmail", FROM_EMAIL);
-            variables.put("orderUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
-
             String reviewLink = generateCleanReviewLink(order);
-            variables.put("reviewLink", reviewLink);
-            variables.put("showReviewLink", true);
 
-            String subject = String.format("Order Cancelled - %s", order.getRequestId());
+            String htmlContent = buildHtmlEmail(
+                    "#dc2626",
+                    "Order Cancelled",
+                    order,
+                    null,
+                    order.getCancellationReason(),
+                    reviewLink,
+                    true
+            );
 
-            boolean sent = sendHtmlEmail(order.getClientEmail(), subject, "order-cancelled-client", variables);
-            if (!sent) {
-                sendOrderCancelledByClientPlainText(order, reviewLink);
-            }
+            sendHtmlEmail(order.getClientEmail(),
+                    String.format("Order Cancelled - %s", order.getRequestId()),
+                    htmlContent);
 
             // Notify admin
-            String adminContent = String.format("""
-                Client %s (%s) cancelled order %s.
-                Item: %s | Reason: %s | Date: %s
-                """,
-                    order.getClientName(), order.getClientEmail(), order.getRequestId(),
-                    order.getItemName(),
-                    order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified",
-                    formatDate(order.getUpdatedAt())
-            );
-            sendPlainTextEmail(adminEmail, String.format("[ADMIN] Order Cancelled - %s", order.getRequestId()), adminContent);
-
-            log.info("Cancellation emails sent for order {}", order.getRequestId());
+            sendPlainTextEmail(adminEmail,
+                    String.format("[ADMIN] Order Cancelled - %s", order.getRequestId()),
+                    String.format("Client %s (%s) cancelled order %s\nItem: %s\nReason: %s",
+                            order.getClientName(), order.getClientEmail(), order.getRequestId(),
+                            order.getItemName(),
+                            order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified"));
 
         } catch (Exception e) {
             log.error("Failed to send cancellation emails: {}", e.getMessage());
-            String reviewLink = generateCleanReviewLink(order);
-            sendOrderCancelledByClientPlainText(order, reviewLink);
+            sendOrderCancelledByClientPlainText(order, generateCleanReviewLink(order));
         }
     }
 
     public void sendOrderCancelledByAdminEmail(ItemRequest order) {
         try {
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("clientName", order.getClientName());
-            variables.put("requestId", order.getRequestId());
-            variables.put("itemName", order.getItemName());
-            variables.put("cancellationDate", formatDate(order.getUpdatedAt()));
-            variables.put("cancellationReason", order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified");
-            variables.put("companyName", companyName);
-            variables.put("appDomain", appDomain);
-            variables.put("supportEmail", FROM_EMAIL);
-            variables.put("orderUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
-
             String reviewLink = generateCleanReviewLink(order);
-            variables.put("reviewLink", reviewLink);
-            variables.put("showReviewLink", true);
 
-            String subject = String.format("Order Cancelled - %s", order.getRequestId());
+            String htmlContent = buildHtmlEmail(
+                    "#dc2626",
+                    "Order Cancelled by Admin",
+                    order,
+                    null,
+                    order.getCancellationReason(),
+                    reviewLink,
+                    true
+            );
 
-            boolean sent = sendHtmlEmail(order.getClientEmail(), subject, "order-cancelled-admin", variables);
-            if (!sent) {
-                sendOrderCancelledByAdminPlainText(order, reviewLink);
-            }
-
-            log.info("Admin cancellation email sent to {}", order.getClientEmail());
+            sendHtmlEmail(order.getClientEmail(),
+                    String.format("Order Cancelled - %s", order.getRequestId()),
+                    htmlContent);
 
         } catch (Exception e) {
             log.error("Failed to send admin cancellation email: {}", e.getMessage());
-            String reviewLink = generateCleanReviewLink(order);
-            sendOrderCancelledByAdminPlainText(order, reviewLink);
+            sendOrderCancelledByAdminPlainText(order, generateCleanReviewLink(order));
         }
     }
 
     public void sendOrderEditedByClientEmail(ItemRequest order, Map<String, String> changes) {
         try {
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("clientName", order.getClientName());
-            variables.put("requestId", order.getRequestId());
-            variables.put("itemName", order.getItemName());
-            variables.put("updatedDate", formatDate(order.getUpdatedAt()));
-            variables.put("companyName", companyName);
-            variables.put("appDomain", appDomain);
-            variables.put("supportEmail", FROM_EMAIL);
-            variables.put("orderUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
-
             String reviewLink = generateCleanReviewLink(order);
-            variables.put("reviewLink", reviewLink);
-            variables.put("showReviewLink", true);
 
+            StringBuilder changesHtml = new StringBuilder();
             if (changes != null && !changes.isEmpty()) {
-                StringBuilder changesHtml = new StringBuilder("<ul>");
+                changesHtml.append("<div style='background-color:#fef3c7;padding:15px;border-radius:8px;margin:15px 0;'><strong>Changes made:</strong><ul>");
                 changes.forEach((field, change) ->
                         changesHtml.append("<li><strong>").append(field).append(":</strong> ").append(change).append("</li>"));
-                changesHtml.append("</ul>");
-                variables.put("changesHtml", changesHtml.toString());
-            } else {
-                variables.put("changesHtml", "<p>No significant changes recorded.</p>");
+                changesHtml.append("</ul></div>");
             }
 
-            String subject = String.format("Order Updated - %s", order.getRequestId());
+            String htmlContent = buildHtmlEmail(
+                    "#3b82f6",
+                    "Order Updated",
+                    order,
+                    null,
+                    null,
+                    reviewLink,
+                    true,
+                    changesHtml.toString()
+            );
 
-            boolean sent = sendHtmlEmail(order.getClientEmail(), subject, "order-edited-client", variables);
-            if (!sent) {
-                sendOrderEditedByClientPlainText(order, changes, reviewLink);
-            }
+            sendHtmlEmail(order.getClientEmail(),
+                    String.format("Order Updated - %s", order.getRequestId()),
+                    htmlContent);
 
             // Notify admin
-            StringBuilder adminChanges = new StringBuilder();
+            StringBuilder changesText = new StringBuilder();
             if (changes != null && !changes.isEmpty()) {
-                changes.forEach((field, change) -> adminChanges.append("- ").append(field).append(": ").append(change).append("\n"));
+                changes.forEach((field, change) -> changesText.append("\n- ").append(field).append(": ").append(change));
             }
-
-            String adminContent = String.format("""
-                Client %s (%s) updated order %s.
-                Item: %s | Updated: %s
-                %s
-                """,
-                    order.getClientName(), order.getClientEmail(), order.getRequestId(),
-                    order.getItemName(), formatDate(order.getUpdatedAt()), adminChanges.toString()
-            );
-            sendPlainTextEmail(adminEmail, String.format("[ADMIN] Order Updated - %s", order.getRequestId()), adminContent);
-
-            log.info("Order edit emails sent for order {}", order.getRequestId());
+            sendPlainTextEmail(adminEmail,
+                    String.format("[ADMIN] Order Updated - %s", order.getRequestId()),
+                    String.format("Client %s (%s) updated order %s\nItem: %s\nUpdated: %s%s",
+                            order.getClientName(), order.getClientEmail(), order.getRequestId(),
+                            order.getItemName(), formatDate(order.getUpdatedAt()), changesText.toString()));
 
         } catch (Exception e) {
             log.error("Failed to send order edit emails: {}", e.getMessage());
-            String reviewLink = generateCleanReviewLink(order);
-            sendOrderEditedByClientPlainText(order, changes, reviewLink);
+            sendOrderEditedByClientPlainText(order, changes, generateCleanReviewLink(order));
         }
     }
 
     public void sendOrderEditedByAdminEmail(ItemRequest order) {
         try {
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("clientName", order.getClientName());
-            variables.put("requestId", order.getRequestId());
-            variables.put("itemName", order.getItemName());
-            variables.put("newStatus", formatStatus(order.getStatus()));
-            variables.put("updatedDate", formatDate(order.getUpdatedAt()));
-            variables.put("companyName", companyName);
-            variables.put("appDomain", appDomain);
-            variables.put("supportEmail", FROM_EMAIL);
-            variables.put("orderUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
-
             String reviewLink = generateCleanReviewLink(order);
-            variables.put("reviewLink", reviewLink);
-            variables.put("showReviewLink", true);
 
-            String subject = String.format("Order Updated - %s", order.getRequestId());
+            String htmlContent = buildHtmlEmail(
+                    "#3b82f6",
+                    "Order Updated by Admin",
+                    order,
+                    order.getStatus(),
+                    null,
+                    reviewLink,
+                    true
+            );
 
-            boolean sent = sendHtmlEmail(order.getClientEmail(), subject, "order-edited-admin", variables);
-            if (!sent) {
-                sendOrderEditedByAdminPlainText(order, reviewLink);
-            }
-
-            log.info("Admin edit email sent to {}", order.getClientEmail());
+            sendHtmlEmail(order.getClientEmail(),
+                    String.format("Order Updated - %s", order.getRequestId()),
+                    htmlContent);
 
         } catch (Exception e) {
             log.error("Failed to send admin edit email: {}", e.getMessage());
-            String reviewLink = generateCleanReviewLink(order);
-            sendOrderEditedByAdminPlainText(order, reviewLink);
+            sendOrderEditedByAdminPlainText(order, generateCleanReviewLink(order));
         }
     }
 
     // ============= CORE EMAIL METHODS =============
 
-    private boolean sendHtmlEmail(String to, String subject, String templateName, Map<String, Object> variables) {
-        try {
-            Context context = new Context();
-            context.setVariables(variables);
-            String htmlContent = templateEngine.process(templateName, context);
+    private String buildHtmlEmail(String headerColor, String title, ItemRequest order,
+                                  String status, String cancelReason, String reviewLink,
+                                  boolean showReview, String... extraContent) {
+        String statusHtml = "";
+        if (status != null) {
+            statusHtml = String.format("""
+                <p><strong>New Status:</strong> <span style="display:inline-block;background-color:%s;color:white;padding:8px 16px;border-radius:20px;">%s</span></p>
+                """, headerColor, formatStatus(status));
+        }
 
+        String cancelHtml = "";
+        if (cancelReason != null) {
+            cancelHtml = String.format("<p><strong>Reason:</strong> %s</p>", cancelReason);
+        }
+
+        String reviewHtml = "";
+        if (showReview && reviewLink != null) {
+            reviewHtml = String.format("""
+                <div style="background-color:#f0fdf4;padding:20px;border-radius:8px;margin:20px 0;text-align:center;">
+                    <p><strong>📝 Share your experience!</strong></p>
+                    <a href="%s" style="display:inline-block;background-color:#059669;color:white;padding:12px 30px;text-decoration:none;border-radius:5px;">Leave a Review →</a>
+                </div>
+                """, reviewLink);
+        }
+
+        String extraHtml = extraContent.length > 0 ? extraContent[0] : "";
+
+        return String.format("""
+            <!DOCTYPE html>
+            <html>
+            <body style="margin:0;padding:0;font-family:Arial,sans-serif;background-color:#f9fafb;">
+            <div style="max-width:600px;margin:0 auto;padding:20px;">
+                <div style="background-color:%s;padding:30px;text-align:center;">
+                    <h1 style="margin:0;color:white;">%s</h1>
+                </div>
+                <div style="padding:30px;background-color:#ffffff;border:1px solid #e5e7eb;border-top:none;">
+                    <p>Dear <strong>%s</strong>,</p>
+                    <div style="background-color:#f9fafb;padding:20px;border-radius:8px;margin:20px 0;">
+                        <p><strong>Order #:</strong> %s</p>
+                        <p><strong>Item:</strong> %s</p>
+                        %s
+                        %s
+                        <p><strong>Date:</strong> %s</p>
+                    </div>
+                    %s
+                    %s
+                    <div style="text-align:center;margin-top:20px;">
+                        <a href="%s/dashboard/UserOrdersPage/" style="display:inline-block;background-color:%s;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">View Order Details</a>
+                    </div>
+                    <div style="margin-top:30px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#6b7280;">
+                        <p>Thank you for choosing %s!</p>
+                        <p>Questions? <a href="mailto:%s" style="color:#6b7280;">%s</a></p>
+                        <p><a href="%s" style="color:#6b7280;">f-carshipping.com</a></p>
+                    </div>
+                </div>
+            </div>
+            </body>
+            </html>
+            """,
+                headerColor, title,
+                order.getClientName(),
+                order.getRequestId(),
+                order.getItemName(),
+                statusHtml,
+                cancelHtml,
+                formatDate(order.getUpdatedAt() != null ? order.getUpdatedAt() : order.getCreatedAt()),
+                reviewHtml,
+                extraHtml,
+                appDomain, headerColor,
+                companyName,
+                FROM_EMAIL, FROM_EMAIL,
+                appDomain
+        );
+    }
+
+    private void sendHtmlEmail(String to, String subject, String htmlContent) {
+        try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(to);
             helper.setFrom(FROM_EMAIL, FROM_NAME);
             helper.setSubject(subject);
-            helper.setText(htmlContent, true);
+            helper.setText(htmlContent, true); // true = is HTML
 
             mailSender.send(message);
-            log.info("Email sent to {} using template {}", to, templateName);
-            return true;
+            log.info("HTML email sent to {} - Subject: {}", to, subject);
         } catch (Exception e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
-            return false;
+            log.error("Failed to send HTML email to {}: {}", to, e.getMessage());
+            throw new RuntimeException("Email sending failed", e);
         }
     }
 
@@ -440,17 +486,7 @@ public class EmailService {
     private void sendOrderConfirmationPlainText(ItemRequest order, String reviewLink) {
         sendPlainTextEmail(order.getClientEmail(),
                 String.format("Order Confirmed - %s", order.getRequestId()),
-                String.format("""
-                Dear %s,
-                
-                Order Confirmed! #%s - %s
-                Date: %s
-                
-                Track your order: %s/dashboard/UserOrdersPage/
-                Share your experience: %s
-                
-                Questions? %s
-                """,
+                String.format("Dear %s,\n\nOrder Confirmed! #%s - %s\nDate: %s\n\nTrack: %s/dashboard/UserOrdersPage/\nFeedback: %s\n\nQuestions? %s",
                         order.getClientName(), order.getRequestId(), order.getItemName(),
                         formatDate(order.getCreatedAt()), appDomain, reviewLink, FROM_EMAIL));
     }
@@ -458,16 +494,7 @@ public class EmailService {
     private void sendStatusUpdatePlainText(ItemRequest order, String reviewLink) {
         sendPlainTextEmail(order.getClientEmail(),
                 String.format("Order Update - %s", order.getRequestId()),
-                String.format("""
-                Dear %s,
-                
-                Order #%s - %s
-                Status: %s
-                Date: %s
-                
-                Track: %s/dashboard/UserOrdersPage/
-                Feedback: %s
-                """,
+                String.format("Dear %s,\n\nOrder #%s - %s\nStatus: %s\nDate: %s\n\nTrack: %s/dashboard/UserOrdersPage/\nFeedback: %s",
                         order.getClientName(), order.getRequestId(), order.getItemName(),
                         formatStatus(order.getStatus()), formatDate(order.getUpdatedAt()),
                         appDomain, reviewLink));
@@ -476,15 +503,7 @@ public class EmailService {
     private void sendReviewRequestPlainText(ItemRequest order, String reviewUrl) {
         sendPlainTextEmail(order.getClientEmail(),
                 String.format("Share your experience with %s", order.getItemName()),
-                String.format("""
-                Dear %s,
-                
-                Thank you for ordering %s (#%s)
-                
-                Share your feedback: %s
-                
-                Your feedback helps us improve!
-                """,
+                String.format("Dear %s,\n\nThank you for ordering %s (#%s)\n\nShare your feedback: %s\n\nYour feedback helps us improve!",
                         order.getClientName(), order.getItemName(), order.getRequestId(), reviewUrl));
     }
 
@@ -497,15 +516,7 @@ public class EmailService {
     private void sendOrderCancelledByClientPlainText(ItemRequest order, String reviewLink) {
         sendPlainTextEmail(order.getClientEmail(),
                 String.format("Order Cancelled - %s", order.getRequestId()),
-                String.format("""
-                Dear %s,
-                
-                Order #%s - %s cancelled.
-                Reason: %s
-                Date: %s
-                
-                Feedback: %s
-                """,
+                String.format("Dear %s,\n\nOrder #%s - %s cancelled.\nReason: %s\nDate: %s\n\nFeedback: %s",
                         order.getClientName(), order.getRequestId(), order.getItemName(),
                         order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified",
                         formatDate(order.getUpdatedAt()), reviewLink));
@@ -514,15 +525,7 @@ public class EmailService {
     private void sendOrderCancelledByAdminPlainText(ItemRequest order, String reviewLink) {
         sendPlainTextEmail(order.getClientEmail(),
                 String.format("Order Cancelled - %s", order.getRequestId()),
-                String.format("""
-                Dear %s,
-                
-                Order #%s - %s cancelled by admin.
-                Reason: %s
-                
-                Questions? Contact us: %s
-                Feedback: %s
-                """,
+                String.format("Dear %s,\n\nOrder #%s - %s cancelled by admin.\nReason: %s\n\nQuestions? %s\nFeedback: %s",
                         order.getClientName(), order.getRequestId(), order.getItemName(),
                         order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified",
                         FROM_EMAIL, reviewLink));
@@ -533,18 +536,9 @@ public class EmailService {
         if (changes != null && !changes.isEmpty()) {
             changes.forEach((field, change) -> changesText.append("\n- ").append(field).append(": ").append(change));
         }
-
         sendPlainTextEmail(order.getClientEmail(),
                 String.format("Order Updated - %s", order.getRequestId()),
-                String.format("""
-                Dear %s,
-                
-                Order #%s - %s updated.
-                Date: %s%s
-                
-                Track: %s/dashboard/UserOrdersPage/
-                Feedback: %s
-                """,
+                String.format("Dear %s,\n\nOrder #%s - %s updated.\nDate: %s%s\n\nTrack: %s/dashboard/UserOrdersPage/\nFeedback: %s",
                         order.getClientName(), order.getRequestId(), order.getItemName(),
                         formatDate(order.getUpdatedAt()), changesText.toString(),
                         appDomain, reviewLink));
@@ -553,16 +547,7 @@ public class EmailService {
     private void sendOrderEditedByAdminPlainText(ItemRequest order, String reviewLink) {
         sendPlainTextEmail(order.getClientEmail(),
                 String.format("Order Updated - %s", order.getRequestId()),
-                String.format("""
-                Dear %s,
-                
-                Order #%s - %s updated by admin.
-                New Status: %s
-                Date: %s
-                
-                Track: %s/dashboard/UserOrdersPage/
-                Feedback: %s
-                """,
+                String.format("Dear %s,\n\nOrder #%s - %s updated by admin.\nNew Status: %s\nDate: %s\n\nTrack: %s/dashboard/UserOrdersPage/\nFeedback: %s",
                         order.getClientName(), order.getRequestId(), order.getItemName(),
                         formatStatus(order.getStatus()), formatDate(order.getUpdatedAt()),
                         appDomain, reviewLink));
@@ -599,9 +584,5 @@ public class EmailService {
 
     private String formatDate(LocalDateTime dateTime) {
         return dateTime != null ? dateTime.format(DateTimeFormatter.ofPattern("MMMM d, yyyy")) : "N/A";
-    }
-
-    private String getDomain() {
-        return appDomain.replace("https://", "").replace("http://", "");
     }
 }

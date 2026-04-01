@@ -12,7 +12,6 @@ import org.thymeleaf.context.Context;
 
 import jakarta.mail.internet.MimeMessage;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -104,9 +103,9 @@ public class EmailService {
 
     // ============= ORDER EMAILS =============
 
-    public void sendOrderConfirmationEmail(ItemRequest order) {
+    public void sendOrderConfirmationEmail(ItemRequest order, String reviewToken) {
         try {
-            String reviewLink = generateCleanReviewLink(order);
+            String reviewLink = String.format("%s/Reviews/%s", appDomain, reviewToken);
 
             String htmlContent = buildHtmlEmail(
                     "#059669",
@@ -124,13 +123,14 @@ public class EmailService {
 
         } catch (Exception e) {
             log.error("Failed to send order confirmation: {}", e.getMessage());
-            sendOrderConfirmationPlainText(order, generateCleanReviewLink(order));
+            String reviewLink = String.format("%s/Reviews/%s", appDomain, reviewToken);
+            sendOrderConfirmationPlainText(order, reviewLink);
         }
     }
 
-    public void sendStatusUpdateEmail(ItemRequest order) {
+    public void sendStatusUpdateEmail(ItemRequest order, String reviewToken) {
         try {
-            String reviewLink = generateCleanReviewLink(order);
+            String reviewLink = String.format("%s/Reviews/%s", appDomain, reviewToken);
 
             String htmlContent = buildHtmlEmail(
                     "#3b82f6",
@@ -148,14 +148,14 @@ public class EmailService {
 
         } catch (Exception e) {
             log.error("Failed to send status update: {}", e.getMessage());
-            sendStatusUpdatePlainText(order, generateCleanReviewLink(order));
+            String reviewLink = String.format("%s/Reviews/%s", appDomain, reviewToken);
+            sendStatusUpdatePlainText(order, reviewLink);
         }
     }
 
-    public void sendReviewRequestEmail(ItemRequest order) {
+    public void sendReviewRequestEmail(ItemRequest order, String reviewToken) {
         try {
-            String token = generateShortToken(order);
-            String reviewUrl = String.format("%s/reviews/%s", appDomain, token);
+            String reviewUrl = String.format("%s/Reviews/%s", appDomain, reviewToken);
 
             String htmlContent = String.format("""
                 <!DOCTYPE html>
@@ -202,8 +202,7 @@ public class EmailService {
 
         } catch (Exception e) {
             log.error("Failed to send review request: {}", e.getMessage());
-            String token = generateShortToken(order);
-            String reviewUrl = String.format("%s/reviews/%s", appDomain, token);
+            String reviewUrl = String.format("%s/Reviews/%s", appDomain, reviewToken);
             sendReviewRequestPlainText(order, reviewUrl);
         }
     }
@@ -248,9 +247,9 @@ public class EmailService {
         }
     }
 
-    public void sendOrderCancelledByClientEmail(ItemRequest order) {
+    public void sendOrderCancelledByClientEmail(ItemRequest order, String reviewToken) {
         try {
-            String reviewLink = generateCleanReviewLink(order);
+            String reviewLink = String.format("%s/Reviews/%s", appDomain, reviewToken);
 
             String htmlContent = buildHtmlEmail(
                     "#dc2626",
@@ -276,13 +275,14 @@ public class EmailService {
 
         } catch (Exception e) {
             log.error("Failed to send cancellation emails: {}", e.getMessage());
-            sendOrderCancelledByClientPlainText(order, generateCleanReviewLink(order));
+            String reviewLink = String.format("%s/Reviews/%s", appDomain, reviewToken);
+            sendOrderCancelledByClientPlainText(order, reviewLink);
         }
     }
 
-    public void sendOrderCancelledByAdminEmail(ItemRequest order) {
+    public void sendOrderCancelledByAdminEmail(ItemRequest order, String reviewToken) {
         try {
-            String reviewLink = generateCleanReviewLink(order);
+            String reviewLink = String.format("%s/Reviews/%s", appDomain, reviewToken);
 
             String htmlContent = buildHtmlEmail(
                     "#dc2626",
@@ -300,13 +300,14 @@ public class EmailService {
 
         } catch (Exception e) {
             log.error("Failed to send admin cancellation email: {}", e.getMessage());
-            sendOrderCancelledByAdminPlainText(order, generateCleanReviewLink(order));
+            String reviewLink = String.format("%s/Reviews/%s", appDomain, reviewToken);
+            sendOrderCancelledByAdminPlainText(order, reviewLink);
         }
     }
 
-    public void sendOrderEditedByClientEmail(ItemRequest order, Map<String, String> changes) {
+    public void sendOrderEditedByClientEmail(ItemRequest order, Map<String, String> changes, String reviewToken) {
         try {
-            String reviewLink = generateCleanReviewLink(order);
+            String reviewLink = String.format("%s/Reviews/%s", appDomain, reviewToken);
 
             StringBuilder changesHtml = new StringBuilder();
             if (changes != null && !changes.isEmpty()) {
@@ -344,13 +345,14 @@ public class EmailService {
 
         } catch (Exception e) {
             log.error("Failed to send order edit emails: {}", e.getMessage());
-            sendOrderEditedByClientPlainText(order, changes, generateCleanReviewLink(order));
+            String reviewLink = String.format("%s/Reviews/%s", appDomain, reviewToken);
+            sendOrderEditedByClientPlainText(order, changes, reviewLink);
         }
     }
 
-    public void sendOrderEditedByAdminEmail(ItemRequest order) {
+    public void sendOrderEditedByAdminEmail(ItemRequest order, String reviewToken) {
         try {
-            String reviewLink = generateCleanReviewLink(order);
+            String reviewLink = String.format("%s/Reviews/%s", appDomain, reviewToken);
 
             String htmlContent = buildHtmlEmail(
                     "#3b82f6",
@@ -368,7 +370,8 @@ public class EmailService {
 
         } catch (Exception e) {
             log.error("Failed to send admin edit email: {}", e.getMessage());
-            sendOrderEditedByAdminPlainText(order, generateCleanReviewLink(order));
+            String reviewLink = String.format("%s/Reviews/%s", appDomain, reviewToken);
+            sendOrderEditedByAdminPlainText(order, reviewLink);
         }
     }
 
@@ -385,12 +388,12 @@ public class EmailService {
         }
 
         String cancelHtml = "";
-        if (cancelReason != null) {
+        if (cancelReason != null && !cancelReason.isEmpty()) {
             cancelHtml = String.format("<p><strong>Reason:</strong> %s</p>", cancelReason);
         }
 
         String reviewHtml = "";
-        if (showReview && reviewLink != null) {
+        if (showReview && reviewLink != null && !reviewLink.isEmpty()) {
             reviewHtml = String.format("""
                 <div style="background-color:#f0fdf4;padding:20px;border-radius:8px;margin:20px 0;text-align:center;">
                     <p><strong>📝 Share your experience!</strong></p>
@@ -456,7 +459,7 @@ public class EmailService {
             helper.setTo(to);
             helper.setFrom(FROM_EMAIL, FROM_NAME);
             helper.setSubject(subject);
-            helper.setText(htmlContent, true); // true = is HTML
+            helper.setText(htmlContent, true);
 
             mailSender.send(message);
             log.info("HTML email sent to {} - Subject: {}", to, subject);
@@ -554,21 +557,6 @@ public class EmailService {
     }
 
     // ============= HELPER METHODS =============
-
-    private String generateCleanReviewLink(ItemRequest order) {
-        return String.format("%s/Reviews/%s", appDomain, generateShortToken(order));
-    }
-
-    private String generateShortToken(ItemRequest order) {
-        String data = order.getId() + order.getClientEmail() + order.getRequestId() + System.currentTimeMillis();
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(data.getBytes(StandardCharsets.UTF_8));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash).substring(0, 12).toLowerCase();
-        } catch (Exception e) {
-            return UUID.randomUUID().toString().substring(0, 12);
-        }
-    }
 
     private String formatStatus(String status) {
         if (status == null) return "Processing";

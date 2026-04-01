@@ -4,7 +4,6 @@ import io.reflectoring.carshippingbackend.tables.ItemRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -13,10 +12,8 @@ import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
 import jakarta.mail.internet.MimeMessage;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -157,10 +154,15 @@ public class EmailService {
             variables.put("appDomain", appDomain);
             variables.put("companyName", companyName);
             variables.put("supportEmail", FROM_EMAIL);
+            variables.put("orderUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
+
+            // Add review link
+            String reviewLink = generateCleanReviewLink(order);
+            variables.put("reviewLink", reviewLink);
 
             String subject = String.format("Order Confirmed - %s", order.getRequestId());
 
-            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "order-confirmation-safe", variables);
+            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "order-confirmation", variables);
             if (!sent) {
                 sendOrderConfirmationPlainText(order);
             }
@@ -191,6 +193,7 @@ public class EmailService {
             variables.put("appDomain", appDomain);
             variables.put("companyName", companyName);
             variables.put("supportEmail", FROM_EMAIL);
+            variables.put("orderUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
 
             // Add review link only for delivered orders
             if ("DELIVERED".equals(order.getStatus())) {
@@ -201,7 +204,7 @@ public class EmailService {
 
             String subject = String.format("Order Update - %s", order.getRequestId());
 
-            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "order-status-updated-safe", variables);
+            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "order-status-update", variables);
             if (!sent) {
                 sendStatusUpdatePlainText(order);
             }
@@ -238,7 +241,7 @@ public class EmailService {
 
             String subject = String.format("Share your experience with %s", order.getItemName());
 
-            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "review-request-safe", variables);
+            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "review-request", variables);
             if (!sent) {
                 sendReviewRequestPlainText(order, reviewUrl);
             }
@@ -262,33 +265,26 @@ public class EmailService {
         }
 
         try {
-            String content = String.format("""
-                Dear %s,
-                
-                Thank you for your %d-star review of %s!
-                
-                Your feedback helps us serve you better and helps other customers make informed decisions.
-                
-                Best regards,
-                %s Team
-                
-                ---
-                Need help? Contact us: %s
-                Visit us: %s
-                """,
-                    order.getClientName(),
-                    rating,
-                    order.getItemName(),
-                    companyName,
-                    FROM_EMAIL,
-                    appDomain
-            );
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("clientName", order.getClientName());
+            variables.put("itemName", order.getItemName());
+            variables.put("rating", rating);
+            variables.put("companyName", companyName);
+            variables.put("appDomain", appDomain);
+            variables.put("dashboardUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
 
-            sendPlainTextEmail(order.getClientEmail(), "Thank You for Your Review!", content);
+            String subject = "Thank You for Your Review!";
+
+            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "review-thankyou", variables);
+            if (!sent) {
+                sendReviewThankYouPlainText(order, rating);
+            }
+
             log.info("Thank you email sent to {}", order.getClientEmail());
 
         } catch (Exception e) {
             log.error("Failed to send thank you: {}", e.getMessage());
+            sendReviewThankYouPlainText(order, rating);
             trackFailure(order.getClientEmail());
         }
     }
@@ -303,39 +299,24 @@ public class EmailService {
         }
 
         try {
-            String content = String.format("""
-                Dear %s,
-                
-                Your order %s has been cancelled.
-                
-                Order Details:
-                - Order #: %s
-                - Item: %s
-                - Cancellation date: %s
-                - Reason: %s
-                
-                If you have any questions, please contact us at %s.
-                
-                Best regards,
-                %s Team
-                
-                ---
-                %s
-                """,
-                    order.getClientName(),
-                    order.getRequestId(),
-                    order.getRequestId(),
-                    order.getItemName(),
-                    formatDate(order.getUpdatedAt()),
-                    order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified",
-                    FROM_EMAIL,
-                    companyName,
-                    appDomain
-            );
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("clientName", order.getClientName());
+            variables.put("requestId", order.getRequestId());
+            variables.put("itemName", order.getItemName());
+            variables.put("cancellationDate", formatDate(order.getUpdatedAt()));
+            variables.put("cancellationReason", order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified");
+            variables.put("companyName", companyName);
+            variables.put("appDomain", appDomain);
+            variables.put("supportEmail", FROM_EMAIL);
+            variables.put("orderUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
 
-            sendPlainTextEmail(order.getClientEmail(),
-                    String.format("Order Cancelled - %s", order.getRequestId()),
-                    content);
+            String subject = String.format("Order Cancelled - %s", order.getRequestId());
+
+            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "order-cancelled-client", variables);
+
+            if (!sent) {
+                sendOrderCancelledByClientPlainText(order);
+            }
 
             // Notify admin
             String adminContent = String.format("""
@@ -364,7 +345,8 @@ public class EmailService {
             log.info("Cancellation emails sent for order {}", order.getRequestId());
 
         } catch (Exception e) {
-            log.error("Failed to send cancellation emails: {}", e.getMessage());
+            log.error("Failed to send cancellation emails: {}", e.getMessage(), e);
+            sendOrderCancelledByClientPlainText(order);
             trackFailure(order.getClientEmail());
         }
     }
@@ -377,44 +359,30 @@ public class EmailService {
         }
 
         try {
-            String content = String.format("""
-                Dear %s,
-                
-                Your order %s has been cancelled by our team.
-                
-                Order Details:
-                - Order #: %s
-                - Item: %s
-                - Cancellation date: %s
-                - Reason: %s
-                
-                If you have any questions or concerns, please contact us at %s.
-                
-                Best regards,
-                %s Team
-                
-                ---
-                %s
-                """,
-                    order.getClientName(),
-                    order.getRequestId(),
-                    order.getRequestId(),
-                    order.getItemName(),
-                    formatDate(order.getUpdatedAt()),
-                    order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified",
-                    FROM_EMAIL,
-                    companyName,
-                    appDomain
-            );
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("clientName", order.getClientName());
+            variables.put("requestId", order.getRequestId());
+            variables.put("itemName", order.getItemName());
+            variables.put("cancellationDate", formatDate(order.getUpdatedAt()));
+            variables.put("cancellationReason", order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified");
+            variables.put("companyName", companyName);
+            variables.put("appDomain", appDomain);
+            variables.put("supportEmail", FROM_EMAIL);
+            variables.put("orderUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
 
-            sendPlainTextEmail(order.getClientEmail(),
-                    String.format("Order Cancelled - %s", order.getRequestId()),
-                    content);
+            String subject = String.format("Order Cancelled - %s", order.getRequestId());
+
+            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "order-cancelled-admin", variables);
+
+            if (!sent) {
+                sendOrderCancelledByAdminPlainText(order);
+            }
 
             log.info("Admin cancellation email sent to {}", order.getClientEmail());
 
         } catch (Exception e) {
-            log.error("Failed to send admin cancellation email: {}", e.getMessage());
+            log.error("Failed to send admin cancellation email: {}", e.getMessage(), e);
+            sendOrderCancelledByAdminPlainText(order);
             trackFailure(order.getClientEmail());
         }
     }
@@ -429,48 +397,40 @@ public class EmailService {
         }
 
         try {
-            StringBuilder changesText = new StringBuilder();
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("clientName", order.getClientName());
+            variables.put("requestId", order.getRequestId());
+            variables.put("itemName", order.getItemName());
+            variables.put("updatedDate", formatDate(order.getUpdatedAt()));
+            variables.put("companyName", companyName);
+            variables.put("appDomain", appDomain);
+            variables.put("supportEmail", FROM_EMAIL);
+            variables.put("orderUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
+
+            // Format changes for display
             if (changes != null && !changes.isEmpty()) {
-                changesText.append("\nChanges made:\n");
+                StringBuilder changesHtml = new StringBuilder("<ul style='margin: 15px 0; padding-left: 20px;'>");
+                changes.forEach((field, change) ->
+                        changesHtml.append("<li><strong>").append(field).append(":</strong> ").append(change).append("</li>"));
+                changesHtml.append("</ul>");
+                variables.put("changesHtml", changesHtml.toString());
+
+                StringBuilder changesText = new StringBuilder();
                 changes.forEach((field, change) ->
                         changesText.append("- ").append(field).append(": ").append(change).append("\n"));
+                variables.put("changesText", changesText.toString());
+            } else {
+                variables.put("changesHtml", "<p>No significant changes recorded.</p>");
+                variables.put("changesText", "No significant changes recorded.");
             }
 
-            String content = String.format("""
-                Dear %s,
-                
-                Your order %s has been updated successfully.
-                
-                Updated Order:
-                - Order #: %s
-                - Item: %s
-                - Updated: %s%s
-                
-                View your order: %s/dashboard/UserOrdersPage/
-                
-                If you need to make further changes, please contact us at %s.
-                
-                Best regards,
-                %s Team
-                
-                ---
-                %s
-                """,
-                    order.getClientName(),
-                    order.getRequestId(),
-                    order.getRequestId(),
-                    order.getItemName(),
-                    formatDate(order.getUpdatedAt()),
-                    changesText.toString(),
-                    appDomain,
-                    FROM_EMAIL,
-                    companyName,
-                    appDomain
-            );
+            String subject = String.format("Order Updated - %s", order.getRequestId());
 
-            sendPlainTextEmail(order.getClientEmail(),
-                    String.format("Order Updated - %s", order.getRequestId()),
-                    content);
+            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "order-edited-client", variables);
+
+            if (!sent) {
+                sendOrderEditedByClientPlainText(order, changes);
+            }
 
             // Notify admin
             StringBuilder adminChanges = new StringBuilder();
@@ -506,7 +466,8 @@ public class EmailService {
             log.info("Order edit emails sent for order {}", order.getRequestId());
 
         } catch (Exception e) {
-            log.error("Failed to send order edit emails: {}", e.getMessage());
+            log.error("Failed to send order edit emails: {}", e.getMessage(), e);
+            sendOrderEditedByClientPlainText(order, changes);
             trackFailure(order.getClientEmail());
         }
     }
@@ -519,47 +480,30 @@ public class EmailService {
         }
 
         try {
-            String content = String.format("""
-                Dear %s,
-                
-                Your order %s has been updated by our team.
-                
-                Updated Order:
-                - Order #: %s
-                - Item: %s
-                - New Status: %s
-                - Updated: %s
-                
-                View your order: %s/dashboard/UserOrdersPage/
-                
-                If you have any questions, please contact us at %s.
-                
-                Best regards,
-                %s Team
-                
-                ---
-                %s
-                """,
-                    order.getClientName(),
-                    order.getRequestId(),
-                    order.getRequestId(),
-                    order.getItemName(),
-                    formatStatus(order.getStatus()),
-                    formatDate(order.getUpdatedAt()),
-                    appDomain,
-                    FROM_EMAIL,
-                    companyName,
-                    appDomain
-            );
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("clientName", order.getClientName());
+            variables.put("requestId", order.getRequestId());
+            variables.put("itemName", order.getItemName());
+            variables.put("newStatus", formatStatus(order.getStatus()));
+            variables.put("updatedDate", formatDate(order.getUpdatedAt()));
+            variables.put("companyName", companyName);
+            variables.put("appDomain", appDomain);
+            variables.put("supportEmail", FROM_EMAIL);
+            variables.put("orderUrl", String.format("%s/dashboard/UserOrdersPage/", appDomain));
 
-            sendPlainTextEmail(order.getClientEmail(),
-                    String.format("Order Updated - %s", order.getRequestId()),
-                    content);
+            String subject = String.format("Order Updated - %s", order.getRequestId());
+
+            boolean sent = sendSpamSafeHtmlEmail(order.getClientEmail(), subject, "order-edited-admin", variables);
+
+            if (!sent) {
+                sendOrderEditedByAdminPlainText(order);
+            }
 
             log.info("Admin edit email sent to {}", order.getClientEmail());
 
         } catch (Exception e) {
-            log.error("Failed to send admin edit email: {}", e.getMessage());
+            log.error("Failed to send admin edit email: {}", e.getMessage(), e);
+            sendOrderEditedByAdminPlainText(order);
             trackFailure(order.getClientEmail());
         }
     }
@@ -585,10 +529,9 @@ public class EmailService {
             message.setHeader("X-Mailer", FROM_NAME);
             message.setHeader("X-Entity-Ref-ID", UUID.randomUUID().toString());
             message.setHeader("Message-ID", String.format("<%s@%s>", UUID.randomUUID(), getDomain()));
-            message.setHeader("List-Unsubscribe", String.format("<%s/unsubscribe?email=%s>", appDomain, to));
 
             mailSender.send(message);
-            log.info("Spam-safe HTML email sent to {} using template {}", to, templateName);
+            log.info("HTML email sent to {} using template {}", to, templateName);
             return true;
 
         } catch (Exception e) {
@@ -681,7 +624,7 @@ public class EmailService {
                 New Status: %s
                 Date: %s
                 
-                View your order: %s/dashboard/UserOrdersPage/%s
+                View your order: %s/dashboard/UserOrdersPage/
                 %s
                 
                 Best regards,
@@ -696,7 +639,6 @@ public class EmailService {
                     formatStatus(order.getStatus()),
                     formatDate(order.getUpdatedAt()),
                     appDomain,
-                    order.getId(),
                     reviewSection,
                     companyName,
                     appDomain
@@ -746,6 +688,209 @@ public class EmailService {
 
         } catch (Exception e) {
             log.error("Review request plain text failed: {}", e.getMessage());
+        }
+    }
+
+    private void sendReviewThankYouPlainText(ItemRequest order, int rating) {
+        try {
+            String content = String.format("""
+                Dear %s,
+                
+                Thank you for your %d-star review of %s!
+                
+                Your feedback helps us serve you better and helps other customers make informed decisions.
+                
+                Best regards,
+                %s Team
+                
+                ---
+                Need help? Contact us: %s
+                Visit us: %s
+                """,
+                    order.getClientName(),
+                    rating,
+                    order.getItemName(),
+                    companyName,
+                    FROM_EMAIL,
+                    appDomain
+            );
+
+            sendPlainTextEmail(order.getClientEmail(), "Thank You for Your Review!", content);
+
+        } catch (Exception e) {
+            log.error("Review thank you plain text failed: {}", e.getMessage());
+        }
+    }
+
+    private void sendOrderCancelledByClientPlainText(ItemRequest order) {
+        try {
+            String content = String.format("""
+                Dear %s,
+                
+                Your order %s has been cancelled.
+                
+                Order Details:
+                - Order #: %s
+                - Item: %s
+                - Cancellation date: %s
+                - Reason: %s
+                
+                If you have any questions, please contact us at %s.
+                
+                Best regards,
+                %s Team
+                
+                ---
+                %s
+                """,
+                    order.getClientName(),
+                    order.getRequestId(),
+                    order.getRequestId(),
+                    order.getItemName(),
+                    formatDate(order.getUpdatedAt()),
+                    order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified",
+                    FROM_EMAIL,
+                    companyName,
+                    appDomain
+            );
+
+            sendPlainTextEmail(order.getClientEmail(),
+                    String.format("Order Cancelled - %s", order.getRequestId()),
+                    content);
+        } catch (Exception e) {
+            log.error("Failed to send cancellation plain text: {}", e.getMessage());
+        }
+    }
+
+    private void sendOrderCancelledByAdminPlainText(ItemRequest order) {
+        try {
+            String content = String.format("""
+                Dear %s,
+                
+                Your order %s has been cancelled by our team.
+                
+                Order Details:
+                - Order #: %s
+                - Item: %s
+                - Cancellation date: %s
+                - Reason: %s
+                
+                If you have any questions or concerns, please contact us at %s.
+                
+                Best regards,
+                %s Team
+                
+                ---
+                %s
+                """,
+                    order.getClientName(),
+                    order.getRequestId(),
+                    order.getRequestId(),
+                    order.getItemName(),
+                    formatDate(order.getUpdatedAt()),
+                    order.getCancellationReason() != null ? order.getCancellationReason() : "Not specified",
+                    FROM_EMAIL,
+                    companyName,
+                    appDomain
+            );
+
+            sendPlainTextEmail(order.getClientEmail(),
+                    String.format("Order Cancelled - %s", order.getRequestId()),
+                    content);
+        } catch (Exception e) {
+            log.error("Failed to send admin cancellation plain text: {}", e.getMessage());
+        }
+    }
+
+    private void sendOrderEditedByClientPlainText(ItemRequest order, Map<String, String> changes) {
+        try {
+            StringBuilder changesText = new StringBuilder();
+            if (changes != null && !changes.isEmpty()) {
+                changesText.append("\nChanges made:\n");
+                changes.forEach((field, change) ->
+                        changesText.append("- ").append(field).append(": ").append(change).append("\n"));
+            }
+
+            String content = String.format("""
+                Dear %s,
+                
+                Your order %s has been updated successfully.
+                
+                Updated Order:
+                - Order #: %s
+                - Item: %s
+                - Updated: %s%s
+                
+                View your order: %s/dashboard/UserOrdersPage/
+                
+                If you need to make further changes, please contact us at %s.
+                
+                Best regards,
+                %s Team
+                
+                ---
+                %s
+                """,
+                    order.getClientName(),
+                    order.getRequestId(),
+                    order.getRequestId(),
+                    order.getItemName(),
+                    formatDate(order.getUpdatedAt()),
+                    changesText.toString(),
+                    appDomain,
+                    FROM_EMAIL,
+                    companyName,
+                    appDomain
+            );
+
+            sendPlainTextEmail(order.getClientEmail(),
+                    String.format("Order Updated - %s", order.getRequestId()),
+                    content);
+        } catch (Exception e) {
+            log.error("Failed to send edit plain text: {}", e.getMessage());
+        }
+    }
+
+    private void sendOrderEditedByAdminPlainText(ItemRequest order) {
+        try {
+            String content = String.format("""
+                Dear %s,
+                
+                Your order %s has been updated by our team.
+                
+                Updated Order:
+                - Order #: %s
+                - Item: %s
+                - New Status: %s
+                - Updated: %s
+                
+                View your order: %s/dashboard/UserOrdersPage/
+                
+                If you have any questions, please contact us at %s.
+                
+                Best regards,
+                %s Team
+                
+                ---
+                %s
+                """,
+                    order.getClientName(),
+                    order.getRequestId(),
+                    order.getRequestId(),
+                    order.getItemName(),
+                    formatStatus(order.getStatus()),
+                    formatDate(order.getUpdatedAt()),
+                    appDomain,
+                    FROM_EMAIL,
+                    companyName,
+                    appDomain
+            );
+
+            sendPlainTextEmail(order.getClientEmail(),
+                    String.format("Order Updated - %s", order.getRequestId()),
+                    content);
+        } catch (Exception e) {
+            log.error("Failed to send admin edit plain text: {}", e.getMessage());
         }
     }
 
@@ -817,14 +962,5 @@ public class EmailService {
 
     private String getDomain() {
         return appDomain.replace("https://", "").replace("http://", "");
-    }
-
-    // Keep original methods for backward compatibility
-    private String generateReviewLink(ItemRequest order) {
-        return generateCleanReviewLink(order);
-    }
-
-    private String generateSecureToken(ItemRequest order) {
-        return generateShortToken(order);
     }
 }

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Order Cancelled</title>
+</head>
+<body style="font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 0;">
+<div style="max-width: 550px; margin: 0 auto; padding: 20px;">
+    <div style="background-color: #dc2626; padding: 20px; text-align: center;">
+        <h1 style="margin: 0; color: white; font-size: 22px;">Order Cancelled</h1>
+    </div>
+
+    <div style="padding: 20px;">
+        <p>Dear <strong th:text="${clientName}">Customer</strong>,</p>
+
+        <p>Your order has been cancelled as requested.</p>
+
+        <p><strong>Order #:</strong> <span th:text="${requestId}">REQ-0042</span></p>
+        <p><strong>Item:</strong> <span th:text="${itemName}">Item Name</span></p>
+        <p><strong>Cancellation Date:</strong> <span th:text="${cancellationDate}">2024-01-15</span></p>
+        <p><strong>Reason:</strong> <span th:text="${cancellationReason}">Not specified</span></p>
+
+        <p>If you have any questions, please contact us at <a th:href="'mailto:' + ${supportEmail}" th:text="${supportEmail}">support@f-carshipping.com</a></p>
+
+        <hr style="margin: 25px 0; border: none; border-top: 1px solid #ddd;">
+        <p style="font-size: 12px; color: #666;">
+            <a th:href="${appDomain}" style="color: #666;">f-carshipping.com</a>
+        </p>
+    </div>
+</div>
+</body>
+</html>

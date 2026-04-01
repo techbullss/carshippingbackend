@@ -5,55 +5,118 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Order Status Update</title>
     <style>
-        /* Keep CSS extremely simple - inline styles are safer */
         body {
             font-family: Arial, Helvetica, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #ffffff;
+            background-color: #f9fafb;
         }
         .container {
             max-width: 600px;
             margin: 0 auto;
             padding: 20px;
+            background-color: #ffffff;
         }
-        /* Avoid complex selectors and gradients */
+        .header {
+            background-color: #3b82f6;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        .header h1 {
+            margin: 0;
+            color: white;
+            font-size: 28px;
+        }
+        .content {
+            padding: 30px;
+            background-color: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+        }
+        .status-badge {
+            display: inline-block;
+            background-color: #3b82f6;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .order-details {
+            background-color: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .review-link {
+            margin: 30px 0;
+            padding: 20px;
+            text-align: center;
+            background-color: #f0fdf4;
+            border-radius: 8px;
+        }
+        .review-link a {
+            display: inline-block;
+            background-color: #059669;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .button {
+            display: inline-block;
+            background-color: #3b82f6;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <!-- Simple header - no gradient -->
-    <div style="background-color: #2563eb; padding: 20px; text-align: center;">
-        <h1 style="margin: 0; color: white; font-size: 24px;">Order Status Updated</h1>
+    <div class="header">
+        <h1>Order Status Updated</h1>
     </div>
-
-    <!-- Content area - simple background -->
-    <div style="padding: 20px;">
+    <div class="content">
         <p>Dear <strong th:text="${clientName}">Customer</strong>,</p>
 
-        <p>The status of your order has been updated.</p>
+        <p>Your order status has been updated.</p>
 
-        <!-- Simple order details box - no borders, just padding -->
-        <div style="margin: 20px 0;">
+        <div class="order-details">
             <p><strong>Order #:</strong> <span th:text="${requestId}">REQ-0042</span></p>
             <p><strong>Item:</strong> <span th:text="${itemName}">Item Name</span></p>
-            <p><strong>Status:</strong> <span th:text="${newStatus}">Delivered</span></p>
-            <p><strong>Date:</strong> <span th:text="${updatedDate}">2024-01-15</span></p>
+            <p><strong>New Status:</strong> <span class="status-badge" th:text="${newStatus}">Delivered</span></p>
+            <p><strong>Updated:</strong> <span th:text="${updatedDate}">January 15, 2024</span></p>
         </div>
 
-        <!-- SIMPLE review section - no background, no button styling -->
-        <p style="margin-top: 30px;"><strong>We'd love your feedback!</strong></p>
-        <p>Please share your experience with us:</p>
-        <p><a th:href="${reviewLink}" style="color: #2563eb;">Leave a Review →</a></p>
+        <div class="review-link">
+            <p style="margin: 0 0 10px 0;"><strong>📝 Share your experience!</strong></p>
+            <p style="margin: 0 0 15px 0;">Your feedback helps us serve you better.</p>
+            <a th:href="${reviewLink}" style="display: inline-block; background-color: #059669; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Leave a Review →</a>
+        </div>
 
-        <!-- Simple order link -->
-        <p><a th:href="${orderUrl}" style="color: #2563eb;">View Order Details →</a></p>
+        <div style="text-align: center; margin-top: 30px;">
+            <a th:href="${orderUrl}" class="button">View Order Details</a>
+        </div>
 
-        <!-- Simple footer -->
-        <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
-        <p style="font-size: 12px; color: #6b7280;">
-            Thank you for choosing f-carshipping.com
-        </p>
+        <div class="footer">
+            <p>Thank you for choosing <strong th:text="${companyName}">F-Car Shipping</strong>!</p>
+            <p>Questions? Contact us at <a th:href="'mailto:' + ${supportEmail}" th:text="${supportEmail}">support@f-carshipping.com</a></p>
+            <p><a th:href="${appDomain}" style="color: #6b7280;">f-carshipping.com</a></p>
+        </div>
     </div>
 </div>
 </body>

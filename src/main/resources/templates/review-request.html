@@ -2,37 +2,102 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Share Your Experience</title>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9fafb;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+        .header {
+            background-color: #059669;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        .header h1 {
+            margin: 0;
+            color: white;
+            font-size: 28px;
+        }
+        .content {
+            padding: 30px;
+            background-color: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+        }
+        .order-details {
+            background-color: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .review-button {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .review-button a {
+            display: inline-block;
+            background-color: #059669;
+            color: white;
+            padding: 15px 40px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .stars {
+            font-size: 32px;
+            color: #fbbf24;
+            text-align: center;
+            margin: 20px 0;
+        }
+    </style>
 </head>
-<body style="font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 0;">
-<div style="max-width: 550px; margin: 0 auto; padding: 20px;">
-    <!-- Simple header - NO GRADIENT -->
-    <div style="background-color: #059669; padding: 20px; text-align: center;">
-        <h1 style="margin: 0; color: white; font-size: 22px;">How was your experience?</h1>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>How was your experience? 🌟</h1>
     </div>
-
-    <!-- Simple content area -->
-    <div style="padding: 20px;">
+    <div class="content">
         <p>Dear <strong th:text="${clientName}">Customer</strong>,</p>
 
-        <p>Thank you for your recent order of <strong th:text="${itemName}">Item</strong>.</p>
+        <p>Thank you for your recent order of <strong th:text="${itemName}">Item Name</strong>.</p>
 
-        <!-- Simple order details - NO BORDERS -->
-        <p><strong>Order ID:</strong> <span th:text="${requestId}">REQ-0042</span></p>
-        <p><strong>Item:</strong> <span th:text="${itemName}">Item Name</span></p>
-        <p><strong>Date:</strong> <span th:text="${orderDate}">2024-01-15</span></p>
+        <div class="order-details">
+            <p><strong>Order #:</strong> <span th:text="${requestId}">REQ-0042</span></p>
+            <p><strong>Item:</strong> <span th:text="${itemName}">Item Name</span></p>
+            <p><strong>Order Date:</strong> <span th:text="${orderDate}">January 15, 2024</span></p>
+        </div>
 
-        <!-- SIMPLE review link - just text, no button styling -->
-        <p style="margin-top: 25px;">We'd love your feedback:</p>
-        <p><a th:href="${reviewUrl}" style="color: #059669;">Share your experience →</a></p>
+        <p>We'd love to hear about your experience! Your feedback helps us improve and helps other customers make informed decisions.</p>
 
-        <!-- Simple footer - minimal links -->
-        <hr style="margin: 25px 0; border: none; border-top: 1px solid #ddd;">
-        <p style="font-size: 12px; color: #666;">
-            f-carshipping.com |
-            <a href="mailto:support@f-carshipping.com" style="color: #666;">support@f-carshipping.com</a>
-        </p>
-        <p style="font-size: 11px; color: #999;">If you didn't request this, please ignore.</p>
+        <div class="review-button">
+            <a th:href="${reviewUrl}">Share Your Experience →</a>
+        </div>
+
+        <div class="footer">
+            <p>Questions? Contact us at <a th:href="'mailto:' + ${supportEmail}" th:text="${supportEmail}">support@f-carshipping.com</a></p>
+            <p style="font-size: 11px; color: #9ca3af;">If you didn't request this review, please ignore this email.</p>
+            <p><a th:href="${appDomain}" style="color: #6b7280;">f-carshipping.com</a></p>
+        </div>
     </div>
 </div>
 </body>

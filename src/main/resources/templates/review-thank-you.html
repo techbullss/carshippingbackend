@@ -2,31 +2,94 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Thank You for Your Review</title>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9fafb;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+        .header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            padding: 40px 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        .header h1 {
+            margin: 0;
+            color: white;
+            font-size: 32px;
+        }
+        .content {
+            padding: 30px;
+            background-color: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            text-align: center;
+        }
+        .stars {
+            font-size: 48px;
+            color: #fbbf24;
+            margin: 20px 0;
+        }
+        .thank-you-message {
+            background-color: #f0fdf4;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            background-color: #059669;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+        }
+    </style>
 </head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
-<div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px;">
-        <h1 style="margin: 0;">Thank You!</h1>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Thank You! 🎉</h1>
     </div>
-
-    <div style="background: #f9fafb; padding: 30px; border-radius: 10px; margin-top: 20px; text-align: center;">
-        <p style="font-size: 18px;">Dear <strong th:text="${clientName}">John</strong>,</p>
-
-        <p>Thank you for taking the time to share your experience with <strong th:text="${itemName}">iPhone 15 Pro</strong>.</p>
-
-        <div style="font-size: 32px; color: #fbbf24; margin: 20px 0;">
+    <div class="content">
+        <div class="stars">
             <span th:each="i : ${#numbers.sequence(1, rating)}">★</span>
             <span th:each="i : ${#numbers.sequence(1, 5 - rating)}">☆</span>
         </div>
 
-        <p>Your feedback helps us improve our service and assist other customers.</p>
+        <div class="thank-you-message">
+            <p style="font-size: 18px; margin: 0;">Dear <strong th:text="${clientName}">Customer</strong>,</p>
+            <p style="margin: 10px 0 0 0;">Thank you for taking the time to share your experience with <strong th:text="${itemName}">Item Name</strong>.</p>
+        </div>
 
-        <div style="margin-top: 30px;">
-            <a th:href="${dashboardUrl}"
-               style="display: inline-block; background: #10b981; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                View Your Orders
-            </a>
+        <p>Your feedback helps us improve our service and assist other customers in making informed decisions.</p>
+
+        <a th:href="${dashboardUrl}" class="button">View Your Orders</a>
+
+        <div class="footer">
+            <p>Need help? Contact us at <a th:href="'mailto:' + ${supportEmail}" th:text="${supportEmail}">support@f-carshipping.com</a></p>
+            <p><a th:href="${appDomain}" style="color: #6b7280;">f-carshipping.com</a></p>
         </div>
     </div>
 </div>

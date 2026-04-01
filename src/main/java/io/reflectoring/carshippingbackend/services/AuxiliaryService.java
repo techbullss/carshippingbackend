@@ -14,7 +14,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -57,7 +60,7 @@ public class AuxiliaryService {
 
         ItemRequest saved = itemRequestRepository.save(request);
 
-        // Send confirmation email (UPDATED to use HTML template with review link)
+        // Send confirmation email
         emailService.sendOrderConfirmationEmail(saved);
 
         return saved;
@@ -88,7 +91,7 @@ public class AuxiliaryService {
 
         ItemRequest updated = itemRequestRepository.save(request);
 
-        // Send status update email to client (UPDATED to use HTML template with review link)
+        // Send status update email to client
         emailService.sendStatusUpdateEmail(updated);
 
         // If status changed to DELIVERED, send review request
@@ -104,22 +107,19 @@ public class AuxiliaryService {
         ItemRequest existingOrder = itemRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
-        // Store old order for change tracking
-        ItemRequest oldOrder = cloneOrder(existingOrder);
-
         // Update fields (admin can update everything)
         updateOrderFields(existingOrder, updatedRequest);
         existingOrder.setUpdatedAt(LocalDateTime.now());
 
         ItemRequest saved = itemRequestRepository.save(existingOrder);
 
-        // Send email notification to client about admin edit (with review link)
+        // Send email notification to client about admin edit
         emailService.sendOrderEditedByAdminEmail(saved);
 
         return saved;
     }
 
-    // Submit review
+    // Submit review (from website with authentication)
     public Review submitReview(Review review, String clientEmail) {
         review.setClientEmail(clientEmail);
         review.setCreatedAt(LocalDateTime.now());
@@ -138,17 +138,29 @@ public class AuxiliaryService {
         return saved;
     }
 
-    // Submit review from email (with order ID)
+    // Submit review from email link (with token)
     public Review submitReviewFromEmail(Map<String, Object> reviewData) {
-        Long orderId = Long.parseLong(reviewData.get("orderId").toString());
+        String token = (String) reviewData.get("token");
         Integer rating = (Integer) reviewData.get("rating");
         String comment = (String) reviewData.get("comment");
         String clientName = (String) reviewData.get("clientName");
         String itemName = (String) reviewData.get("itemName");
 
-        // Get order to get client email
-        ItemRequest order = itemRequestRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+        // Find order by token
+        List<ItemRequest> allOrders = itemRequestRepository.findAll();
+        ItemRequest order = null;
+
+        for (ItemRequest o : allOrders) {
+            String expectedToken = generateShortToken(o);
+            if (expectedToken.equals(token)) {
+                order = o;
+                break;
+            }
+        }
+
+        if (order == null) {
+            throw new RuntimeException("Invalid or expired review token. Please request a new review link.");
+        }
 
         // Create review
         Review review = new Review();
@@ -157,7 +169,7 @@ public class AuxiliaryService {
         review.setItemName(itemName);
         review.setRating(rating);
         review.setComment(comment);
-        review.setOrderId(orderId);
+        review.setOrderId(order.getId());
         review.setApproved(true);
         review.setCreatedAt(LocalDateTime.now());
         review.setHelpfulCount(0);
@@ -170,13 +182,50 @@ public class AuxiliaryService {
         return saved;
     }
 
-    // Validate review token
+    // Validate review token with orderId (legacy)
     public boolean validateReviewToken(Long orderId, String token) {
         ItemRequest order = itemRequestRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
-        String expectedToken = generateReviewToken(order);
+        String expectedToken = generateShortToken(order);
         return expectedToken.equals(token);
+    }
+
+    // Validate review by token only (new)
+    public Map<String, Object> validateReviewByToken(String token) {
+        // Find order by token
+        List<ItemRequest> allOrders = itemRequestRepository.findAll();
+
+        for (ItemRequest order : allOrders) {
+            String expectedToken = generateShortToken(order);
+            if (expectedToken.equals(token)) {
+                return Map.of(
+                        "valid", true,
+                        "clientName", order.getClientName(),
+                        "itemName", order.getItemName(),
+                        "clientEmail", order.getClientEmail(),
+                        "orderId", order.getId()
+                );
+            }
+        }
+
+        return Map.of(
+                "valid", false,
+                "message", "Invalid or expired review link. Please request a new review link."
+        );
+    }
+
+    // Generate short token for review links
+    private String generateShortToken(ItemRequest order) {
+        String data = order.getId() + order.getClientEmail() + order.getRequestId() + System.currentTimeMillis();
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(data.getBytes(StandardCharsets.UTF_8));
+            String fullHash = Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+            return fullHash.substring(0, 12).toLowerCase();
+        } catch (Exception e) {
+            return UUID.randomUUID().toString().substring(0, 12);
+        }
     }
 
     // Get all reviews
@@ -348,7 +397,7 @@ public class AuxiliaryService {
 
         ItemRequest updated = itemRequestRepository.save(order);
 
-        // Send cancellation email notifications (with review link)
+        // Send cancellation email notifications
         emailService.sendOrderCancelledByClientEmail(updated);
 
         return updated;
@@ -365,7 +414,7 @@ public class AuxiliaryService {
 
         ItemRequest updated = itemRequestRepository.save(order);
 
-        // Send cancellation email to client (with review link)
+        // Send cancellation email to client
         emailService.sendOrderCancelledByAdminEmail(updated);
 
         return updated;
@@ -482,7 +531,7 @@ public class AuxiliaryService {
         return changes;
     }
 
-    // Helper: Generate review token
+    // Helper: Generate review token (legacy)
     private String generateReviewToken(ItemRequest order) {
         String data = order.getId() + order.getClientEmail() + order.getRequestId() + "f-carshipping-secret";
         try {
@@ -507,6 +556,4 @@ public class AuxiliaryService {
             return null;
         }
     }
-
-
 }

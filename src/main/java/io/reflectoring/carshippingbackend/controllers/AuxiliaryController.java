@@ -94,7 +94,7 @@ public class AuxiliaryController {
         return ResponseEntity.ok(updated);
     }
 
-    // Admin: Cancel any order with reason (UPDATED)
+    // Admin: Cancel any order with reason
     @PatchMapping("/admin/requests/{id}/cancel")
     public ResponseEntity<ItemRequest> adminCancelOrder(
             @PathVariable Long id,
@@ -104,7 +104,7 @@ public class AuxiliaryController {
         return ResponseEntity.ok(updated);
     }
 
-    // Client: Cancel own order with reason (NEW)
+    // Client: Cancel own order with reason
     @PatchMapping("/requests/{id}/cancel")
     public ResponseEntity<ItemRequest> clientCancelOrder(
             @PathVariable Long id,
@@ -116,7 +116,7 @@ public class AuxiliaryController {
         return ResponseEntity.ok(updated);
     }
 
-    // Submit review (from website)
+    // Submit review (from website with authentication)
     @PostMapping("/reviews")
     public ResponseEntity<Review> submitReview(@RequestBody Review review, Authentication authentication) {
         String clientEmail = authentication != null ? authentication.getName() : null;
@@ -124,36 +124,47 @@ public class AuxiliaryController {
         return ResponseEntity.ok(saved);
     }
 
-    // Submit review from email link (NO AUTHENTICATION REQUIRED - NEW)
+    // Submit review from email link (NO AUTHENTICATION REQUIRED)
     @PostMapping("/reviews/from-email")
     public ResponseEntity<Review> submitReviewFromEmail(@RequestBody Map<String, Object> reviewData) {
         Review saved = auxiliaryService.submitReviewFromEmail(reviewData);
         return ResponseEntity.ok(saved);
     }
 
-    // Validate review token (for email links - NEW)
+    // Validate review token (for email links) - UPDATED to accept just token
     @GetMapping("/reviews/validate")
     public ResponseEntity<Map<String, Object>> validateReviewToken(
-            @RequestParam Long orderId,
-            @RequestParam String token) {
+            @RequestParam(required = false) Long orderId,
+            @RequestParam(required = false) String token) {
 
-        boolean isValid = auxiliaryService.validateReviewToken(orderId, token);
-
-        if (isValid) {
-            ItemRequest order = auxiliaryService.getOrderById(orderId, null);
-            return ResponseEntity.ok(Map.of(
-                    "valid", true,
-                    "clientName", order.getClientName(),
-                    "itemName", order.getItemName(),
-                    "clientEmail", order.getClientEmail(),
-                    "orderId", order.getId()
-            ));
-        } else {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "valid", false,
-                    "message", "Invalid or expired review link"
-            ));
+        // New approach: validate by token only (no orderId needed)
+        if (token != null && orderId == null) {
+            Map<String, Object> result = auxiliaryService.validateReviewByToken(token);
+            if ((boolean) result.get("valid")) {
+                return ResponseEntity.ok(result);
+            }
+            return ResponseEntity.badRequest().body(result);
         }
+
+        // Legacy approach: validate by orderId and token (for backward compatibility)
+        if (orderId != null && token != null) {
+            boolean isValid = auxiliaryService.validateReviewToken(orderId, token);
+            if (isValid) {
+                ItemRequest order = auxiliaryService.getOrderById(orderId, null);
+                return ResponseEntity.ok(Map.of(
+                        "valid", true,
+                        "clientName", order.getClientName(),
+                        "itemName", order.getItemName(),
+                        "clientEmail", order.getClientEmail(),
+                        "orderId", order.getId()
+                ));
+            }
+        }
+
+        return ResponseEntity.badRequest().body(Map.of(
+                "valid", false,
+                "message", "Invalid or expired review link. Please request a new review link."
+        ));
     }
 
     // Get public reviews
@@ -281,12 +292,12 @@ public class AuxiliaryController {
         return ResponseEntity.ok(updated);
     }
 
-    // Test endpoint to send review email (for development - NEW)
+    // Test endpoint to send review email (for development)
     @PostMapping("/test/send-review-email/{orderId}")
     public ResponseEntity<String> sendTestReviewEmail(@PathVariable Long orderId) {
         try {
             ItemRequest order = auxiliaryService.getOrderById(orderId, null);
-
+            // This would call your email service
             return ResponseEntity.ok("Test review email sent to " + order.getClientEmail());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed: " + e.getMessage());

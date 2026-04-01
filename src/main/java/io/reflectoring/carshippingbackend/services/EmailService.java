@@ -556,7 +556,7 @@ public class EmailService {
     // ============= HELPER METHODS =============
 
     private String generateCleanReviewLink(ItemRequest order) {
-        return String.format("%s/reviews/%s", appDomain, generateShortToken(order));
+        return String.format("%s/Reviews/%s", appDomain, generateShortToken(order));
     }
 
     private String generateShortToken(ItemRequest order) {

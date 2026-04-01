@@ -39,7 +39,7 @@ public class EmailService {
     private static final String FROM_NAME = "F-Car Shipping";
 
     // Admin email for notifications
-    @Value("${app.admin.email:admin@f-carshipping.com}")
+    @Value("${app.admin.email:nduatifrancis43@gmail.com}")
     private String adminEmail;
 
     // Rate limiting to prevent spam flags (max 5 emails per hour per recipient)

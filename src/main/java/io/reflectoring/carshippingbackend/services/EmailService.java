@@ -900,16 +900,20 @@ public class EmailService {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime resetTime = rateLimiterReset.get(email);
 
+        // Reset counter after 1 hour
         if (resetTime == null || now.isAfter(resetTime)) {
-            // Reset counter
-            rateLimiter.put(email, new AtomicInteger(1));
+            rateLimiter.put(email, new AtomicInteger(0));
             rateLimiterReset.put(email, now.plusHours(1));
-            return true;
         }
 
         AtomicInteger counter = rateLimiter.get(email);
-        if (counter != null && counter.incrementAndGet() > MAX_EMAILS_PER_HOUR) {
-            log.warn("Rate limit exceeded for {}", email);
+
+        int currentCount = counter.incrementAndGet();
+
+        log.info(" Email count for {} = {}", email, currentCount);
+
+        if (currentCount > MAX_EMAILS_PER_HOUR) {
+            log.warn(" Rate limit exceeded for {}", email);
             return false;
         }
 

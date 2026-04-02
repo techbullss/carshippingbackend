@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.Set;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -40,5 +41,21 @@ public class UserResponse {
     private String passportPhoto;
     private String govtId;
     private String idNumber;
+    private String profilePicture;
 
+    // Seller type (NEW)
+    private String sellerType; // "individual" or "company"
+
+    // Company fields (for company sellers)
+    private String companyName;
+    private String companyRegistrationNumber;
+    private String kraPin;
+    private String businessPermitNumber;
+    private String companyAddress;
+
+    // Company document URLs
+    private String certificateOfIncorporation;
+    private String kraPinCertificate;
+    private String businessPermit;
+    private String trademarkImage;
 }

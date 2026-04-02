@@ -1,4 +1,5 @@
 package io.reflectoring.carshippingbackend.controllers;
+
 import io.reflectoring.carshippingbackend.DTO.UpdateRoleRequest;
 import io.reflectoring.carshippingbackend.DTO.UpdateUserRequest;
 import io.reflectoring.carshippingbackend.DTO.UserResponse;
@@ -59,11 +60,11 @@ public class AdminController {
         }
     }
 
-
     @GetMapping("/test")
     public ResponseEntity<String> testEndpoint() {
         return ResponseEntity.ok("Test endpoint works!");
     }
+
     @GetMapping("/users/{id}")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         User user = userService.findById(id)
@@ -77,12 +78,12 @@ public class AdminController {
             User user = userService.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
 
-            // Return public seller info (you might want to exclude sensitive data)
             return ResponseEntity.ok(convertToUserResponse(user));
         } catch (Exception e) {
             throw new RuntimeException("Failed to fetch user by email", e);
         }
     }
+
     /**
      * ============================
      *  UPDATE USER
@@ -90,7 +91,6 @@ public class AdminController {
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/users/{id}")
-
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable Long id,
             @RequestBody UpdateUserRequest request) {
@@ -125,6 +125,7 @@ public class AdminController {
         User updatedUser = userService.updateUserRoles(id, request.getRole(), request.getAction());
         return ResponseEntity.ok(convertToUserResponse(updatedUser));
     }
+
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/users/approve/{userId}")
     public ResponseEntity<UserResponse> approveUser(@PathVariable Long userId) {
@@ -137,7 +138,7 @@ public class AdminController {
     }
 
     private UserResponse convertToUserResponse(User user) {
-        return UserResponse.builder()
+        UserResponse.UserResponseBuilder builder = UserResponse.builder()
                 .id(user.getId())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
@@ -151,8 +152,8 @@ public class AdminController {
                 .country(user.getCountry())
                 .preferredCommunication(user.getPreferredCommunication())
                 .newsletter(user.isNewsletter())
-                .verificationCode(user.getVerificationCode()) // Missing
-                .emailVerified(user.isEmailVerified()) // Missing
+                .verificationCode(user.getVerificationCode())
+                .emailVerified(user.isEmailVerified())
                 .shippingFrequency(user.getShippingFrequency())
                 .vehicleType(user.getVehicleType())
                 .estimatedShippingDate(user.getEstimatedShippingDate())
@@ -163,10 +164,42 @@ public class AdminController {
                         .collect(Collectors.toSet()))
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
-                .status(user.getStatus()) // Missing
-                .passportPhoto(user.getPassportPhoto()) // Missing
-                .govtId(user.getGovtId()) // Missing
-                .idNumber(user.getIdNumber()) // Missing
-                .build();
+                .status(user.getStatus())
+                .passportPhoto(user.getPassportPhoto())
+                .govtId(user.getGovtId())
+                .idNumber(user.getIdNumber())
+                .profilePicture(user.getProfilePicture())
+                .sellerType(user.getSellerType());
+
+        // Add company fields if they exist (for company sellers)
+        if (user.getCompanyName() != null) {
+            builder.companyName(user.getCompanyName());
+        }
+        if (user.getCompanyRegistrationNumber() != null) {
+            builder.companyRegistrationNumber(user.getCompanyRegistrationNumber());
+        }
+        if (user.getKraPin() != null) {
+            builder.kraPin(user.getKraPin());
+        }
+        if (user.getBusinessPermitNumber() != null) {
+            builder.businessPermitNumber(user.getBusinessPermitNumber());
+        }
+        if (user.getCompanyAddress() != null) {
+            builder.companyAddress(user.getCompanyAddress());
+        }
+        if (user.getCertificateOfIncorporation() != null) {
+            builder.certificateOfIncorporation(user.getCertificateOfIncorporation());
+        }
+        if (user.getKraPinCertificate() != null) {
+            builder.kraPinCertificate(user.getKraPinCertificate());
+        }
+        if (user.getBusinessPermit() != null) {
+            builder.businessPermit(user.getBusinessPermit());
+        }
+        if (user.getTrademarkImage() != null) {
+            builder.trademarkImage(user.getTrademarkImage());
+        }
+
+        return builder.build();
     }
 }

@@ -92,7 +92,11 @@ public class Car {
 
     @Column(name = "review_submitted")
     private String reviewSubmitted = "SENT";
+    @Column(name = "buyer_name")
+    private String buyerName;
 
+    @Column(name = "buyer_email")
+    private String buyerEmail;
     @Column(name = "source_type")
     private String sourceType = "CAR";
 }

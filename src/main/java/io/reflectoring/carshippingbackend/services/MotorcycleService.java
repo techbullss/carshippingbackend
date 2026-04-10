@@ -26,6 +26,7 @@ public class MotorcycleService {
     private final MotorcycleRepository repo;
     private final Cloudinary cloudinary;
     private final EmailService emailService;
+    private final AuxiliaryService auxiliaryService;
 
     // ==================== HELPER METHODS ====================
 

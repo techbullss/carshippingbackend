@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public interface CarRepository extends JpaRepository<Car, Long>, JpaSpecificationExecutor<Car> {
     @Query("SELECT c FROM Car c WHERE c.brand = :brand AND c.model = :model AND c.id != :excludeId")
@@ -44,5 +45,7 @@ AND
     Page<Car> findByStatus(String status, Pageable pageable);
     @Query("SELECT c FROM Car c WHERE c.status = 'approved'")
     List<Car> findByStatusApproved(Pageable pageable);
+    Optional<Car> findByReviewToken(String token);
+
 }
 

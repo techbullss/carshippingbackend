@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public interface MotorcycleRepository extends
         JpaRepository<Motorcycle, Long>,
@@ -23,6 +24,8 @@ public interface MotorcycleRepository extends
             String brand, String model, String status, Pageable pageable);
     Page<Motorcycle> findByTypeAndStatus(String type, String status, Pageable pageable);
     Page<Motorcycle> findByOwner(String owner, Pageable pageable);
+    Optional<Motorcycle> findByReviewToken(String token);
+
 
     // ============= CUSTOM QUERIES =============
     @Query("SELECT new map(m.brand as name, COUNT(m) as count) FROM Motorcycle m GROUP BY m.brand ORDER BY m.brand")

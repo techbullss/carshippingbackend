@@ -134,37 +134,15 @@ public class AuxiliaryController {
     // Validate review token (for email links) - UPDATED to accept just token
     @GetMapping("/reviews/validate")
     public ResponseEntity<Map<String, Object>> validateReviewToken(
-            @RequestParam(required = false) Long orderId,
-            @RequestParam(required = false) String token) {
+            @RequestParam String token) {
 
-        // New approach: validate by token only (no orderId needed)
-        if (token != null && orderId == null) {
-            Map<String, Object> result = auxiliaryService.validateReviewByToken(token);
-            if ((boolean) result.get("valid")) {
-                return ResponseEntity.ok(result);
-            }
-            return ResponseEntity.badRequest().body(result);
+        Map<String, Object> result = auxiliaryService.validateReviewByToken(token);
+
+        if (Boolean.TRUE.equals(result.get("valid"))) {
+            return ResponseEntity.ok(result);
         }
 
-        // Legacy approach: validate by orderId and token (for backward compatibility)
-        if (orderId != null && token != null) {
-            boolean isValid = auxiliaryService.validateReviewToken(orderId, token);
-            if (isValid) {
-                ItemRequest order = auxiliaryService.getOrderById(orderId, null);
-                return ResponseEntity.ok(Map.of(
-                        "valid", true,
-                        "clientName", order.getClientName(),
-                        "itemName", order.getItemName(),
-                        "clientEmail", order.getClientEmail(),
-                        "orderId", order.getId()
-                ));
-            }
-        }
-
-        return ResponseEntity.badRequest().body(Map.of(
-                "valid", false,
-                "message", "Invalid or expired review link. Please request a new review link."
-        ));
+        return ResponseEntity.badRequest().body(result);
     }
 
     // Get public reviews

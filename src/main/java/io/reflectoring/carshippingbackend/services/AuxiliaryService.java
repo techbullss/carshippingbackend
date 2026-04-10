@@ -2,9 +2,13 @@ package io.reflectoring.carshippingbackend.services;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import io.reflectoring.carshippingbackend.repository.CarRepository;
 import io.reflectoring.carshippingbackend.repository.ItemRequestRepository;
+import io.reflectoring.carshippingbackend.repository.MotorcycleRepository;
 import io.reflectoring.carshippingbackend.repository.ReviewRepository;
+import io.reflectoring.carshippingbackend.tables.Car;
 import io.reflectoring.carshippingbackend.tables.ItemRequest;
+import io.reflectoring.carshippingbackend.tables.Motorcycle;
 import io.reflectoring.carshippingbackend.tables.Review;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +35,8 @@ public class AuxiliaryService {
     private final ReviewRepository reviewRepository;
     private final Cloudinary cloudinary;
     private final EmailService emailService;
+    private final CarRepository carRepository;
+    private final MotorcycleRepository motorcycleRepository;
 
     @Value("${app.admin.email:admin@f-carshipping.com}")
     private String adminEmail;
@@ -226,30 +232,67 @@ public class AuxiliaryService {
 
     // Validate review by token only (new) - uses database lookup
     public Map<String, Object> validateReviewByToken(String token) {
-        log.info("Validating token: {}", token);
+        log.info("Validating token across all entities: {}", token);
 
-        // Find order by stored review token
-        Optional<ItemRequest> orderOpt = itemRequestRepository.findByReviewToken(token);
+        // 1. CHECK CAR
+        Optional<Car> carOpt = carRepository.findByReviewToken(token);
+        if (carOpt.isPresent()) {
+            Car car = carOpt.get();
 
-        if (orderOpt.isPresent()) {
-            ItemRequest order = orderOpt.get();
-            log.info("Token validated for order: {}", order.getRequestId());
+            log.info("Token matched CAR id: {}", car.getId());
+
             return Map.of(
                     "valid", true,
-                    "clientName", order.getClientName(),
-                    "itemName", order.getItemName(),
-                    "clientEmail", order.getClientEmail(),
-                    "orderId", order.getId()
+                    "entityType", "CAR",
+                    "entityId", car.getId(),
+                    "clientName", car.getBuyerName(),
+                    "itemName", car.getBrand() + " " + car.getModel(),
+                    "clientEmail", car.getBuyerEmail()
             );
         }
 
-        log.warn("No order found for token: {}", token);
+        // 2. CHECK MOTORCYCLE
+        Optional<Motorcycle> motoOpt = motorcycleRepository.findByReviewToken(token);
+        if (motoOpt.isPresent()) {
+            Motorcycle m = motoOpt.get();
+
+            log.info("Token matched MOTORCYCLE id: {}", m.getId());
+
+            return Map.of(
+                    "valid", true,
+                    "entityType", "MOTORCYCLE",
+                    "entityId", m.getId(),
+                    "clientName", m.getBuyerName(),
+                    "itemName", m.getBrand() + " " + m.getModel(),
+                    "clientEmail", m.getBuyerEmail()
+            );
+        }
+
+        // 3. CHECK COMMERCIAL (ItemRequest)
+        Optional<ItemRequest> orderOpt = itemRequestRepository.findByReviewToken(token);
+        if (orderOpt.isPresent()) {
+            ItemRequest order = orderOpt.get();
+
+            log.info("Token matched COMMERCIAL order: {}", order.getRequestId());
+
+            return Map.of(
+                    "valid", true,
+                    "entityType", "AUXIARY",
+                    "entityId", order.getId(),
+                    "clientName", order.getClientName(),
+                    "itemName", order.getItemName(),
+                    "clientEmail", order.getClientEmail()
+            );
+        }
+
+        // 4. NOT FOUND ANYWHERE
+        log.warn("Invalid token, not found in any repository: {}", token);
+
         return Map.of(
                 "valid", false,
                 "message", "Invalid or expired review link. Please request a new review link."
         );
     }
-
     // Get all reviews
     public Page<Review> getAllReviews(Pageable pageable) {
         return reviewRepository.findAllByOrderByCreatedAtDesc(pageable);

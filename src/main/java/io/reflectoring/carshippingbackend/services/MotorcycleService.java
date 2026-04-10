@@ -468,7 +468,7 @@ public class MotorcycleService {
         // review token
         String token = UUID.randomUUID().toString();
         m.setReviewToken(token);
-        m.setReviewSubmitted(false);
+        m.setReviewSubmitted("NOTSENT");
 
         repo.save(m);
 

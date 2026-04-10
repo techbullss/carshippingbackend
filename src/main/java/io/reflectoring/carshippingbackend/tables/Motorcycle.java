@@ -73,7 +73,7 @@ public class Motorcycle {
     private LocalDateTime soldAt;
 
     @Column(name = "review_submitted")
-    private boolean reviewSubmitted = false;
+    private String reviewSubmitted = "SENT";
 
     @Column(name = "source_type")
     private String sourceType = "MOTORCYCLE";

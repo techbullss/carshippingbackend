@@ -640,4 +640,43 @@ public class EmailService {
             throw new RuntimeException(e);
         }
     }
+    // Add to EmailService.java
+    public void sendVehicleReviewThankYouEmail(String buyerName, String buyerEmail, String itemName, int rating) {
+        try {
+            String stars = "★".repeat(rating) + "☆".repeat(5 - rating);
+
+            String htmlContent = String.format("""
+            <!DOCTYPE html>
+            <html>
+            <body style="margin:0;padding:0;font-family:Arial,sans-serif;">
+            <div style="max-width:600px;margin:0 auto;padding:20px;">
+                <div style="background:linear-gradient(135deg,#10b981,#059669);padding:40px;text-align:center;">
+                    <h1 style="margin:0;color:white;">Thank You for Your Review! 🎉</h1>
+                </div>
+                <div style="padding:30px;text-align:center;">
+                    <div style="font-size:48px;color:#fbbf24;margin:20px 0;">%s</div>
+                    <div style="background-color:#f0fdf4;padding:20px;border-radius:8px;">
+                        <p style="font-size:18px;">Dear <strong>%s</strong>,</p>
+                        <p>Thank you for your %d-star review of <strong>%s</strong>!</p>
+                    </div>
+                    <p>Your feedback helps other buyers make informed decisions!</p>
+                    <a href="%s" style="display:inline-block;background-color:#059669;color:white;padding:12px 30px;text-decoration:none;border-radius:5px;margin-top:20px;">Browse More Vehicles</a>
+                </div>
+            </div>
+            </body>
+            </html>
+            """,
+                    stars,
+                    buyerName,
+                    rating,
+                    itemName,
+                    appDomain
+            );
+
+            sendHtmlEmail(buyerEmail, "Thank You for Your Review!", htmlContent);
+
+        } catch (Exception e) {
+            log.error("Failed to send thank you email: {}", e.getMessage());
+        }
+    }
 }

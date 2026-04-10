@@ -185,43 +185,116 @@ public class AuxiliaryService {
 
         log.info("Submitting review with token: {}", token);
 
-        // Find order by stored review token
-        Optional<ItemRequest> orderOpt = itemRequestRepository.findByReviewToken(token);
+        // 1. CHECK CAR FIRST
+        Optional<Car> carOpt = carRepository.findByReviewToken(token);
+        if (carOpt.isPresent()) {
+            Car car = carOpt.get();
+            log.info("Found CAR for token: {}", car.getId());
 
-        if (orderOpt.isEmpty()) {
-            log.warn("No order found for token: {}", token);
-            throw new RuntimeException("Invalid or expired review token. Please request a new review link.");
+            // Check if review already submitted
+            if (car.getReviewSubmitted()=="SENT") {
+                throw new RuntimeException("Review already submitted for this purchase");
+            }
+
+            // Create review
+            Review review = new Review();
+            review.setClientName(clientName);
+            review.setClientEmail(car.getBuyerEmail());
+            review.setItemName(itemName);
+            review.setRating(rating);
+            review.setComment(comment);
+            review.setOrderId(car.getId()); // Store car ID
+            review.setApproved(true);
+            review.setCreatedAt(LocalDateTime.now());
+            review.setHelpfulCount(0);
+
+            Review saved = reviewRepository.save(review);
+
+            // Mark that review was submitted
+            car.setReviewSubmitted("SENT");
+            carRepository.save(car);
+
+            // Send thank you email (you may need to create a version for car)
+            emailService.sendVehicleReviewThankYouEmail(car.getBuyerName(), car.getBuyerEmail(), itemName, rating);
+
+            log.info("Review submitted successfully for CAR: {}", car.getId());
+            return saved;
         }
 
-        ItemRequest order = orderOpt.get();
-        log.info("Found order for token: {}", order.getRequestId());
+        // 2. CHECK MOTORCYCLE
+        Optional<Motorcycle> motoOpt = motorcycleRepository.findByReviewToken(token);
+        if (motoOpt.isPresent()) {
+            Motorcycle motorcycle = motoOpt.get();
+            log.info("Found MOTORCYCLE for token: {}", motorcycle.getId());
 
-        // Create review
-        Review review = new Review();
-        review.setClientName(clientName);
-        review.setClientEmail(order.getClientEmail());
-        review.setItemName(itemName);
-        review.setRating(rating);
-        review.setComment(comment);
-        review.setOrderId(order.getId());
-        review.setApproved(true);
-        review.setCreatedAt(LocalDateTime.now());
-        review.setHelpfulCount(0);
+            // Check if review already submitted
+            if (motorcycle.getReviewSubmitted()=="SENT") {
+                throw new RuntimeException("Review already submitted for this purchase");
+            }
 
-        Review saved = reviewRepository.save(review);
+            // Create review
+            Review review = new Review();
+            review.setClientName(clientName);
+            review.setClientEmail(motorcycle.getBuyerEmail());
+            review.setItemName(itemName);
+            review.setRating(rating);
+            review.setComment(comment);
+            review.setOrderId(motorcycle.getId()); // Store motorcycle ID
+            review.setApproved(true);
+            review.setCreatedAt(LocalDateTime.now());
+            review.setHelpfulCount(0);
 
-        // Mark that review was submitted
-        order.setReviewSubmitted(true);
-        itemRequestRepository.save(order);
+            Review saved = reviewRepository.save(review);
 
-        // Send thank you email
-        emailService.sendReviewThankYouEmail(order, rating);
+            // Mark that review was submitted
+            motorcycle.setReviewSubmitted("SENT");
+            motorcycleRepository.save(motorcycle);
 
-        log.info("Review submitted successfully for order: {}", order.getRequestId());
+            // Send thank you email
+            emailService.sendVehicleReviewThankYouEmail(motorcycle.getBuyerName(), motorcycle.getBuyerEmail(), itemName, rating);
 
-        return saved;
+            log.info("Review submitted successfully for MOTORCYCLE: {}", motorcycle.getId());
+            return saved;
+        }
+
+        // 3. CHECK COMMERCIAL (ItemRequest)
+        Optional<ItemRequest> orderOpt = itemRequestRepository.findByReviewToken(token);
+        if (orderOpt.isPresent()) {
+            ItemRequest order = orderOpt.get();
+            log.info("Found COMMERCIAL order for token: {}", order.getRequestId());
+
+            // Check if review already submitted
+
+
+            // Create review
+            Review review = new Review();
+            review.setClientName(clientName);
+            review.setClientEmail(order.getClientEmail());
+            review.setItemName(itemName);
+            review.setRating(rating);
+            review.setComment(comment);
+            review.setOrderId(order.getId());
+            review.setApproved(true);
+            review.setCreatedAt(LocalDateTime.now());
+            review.setHelpfulCount(0);
+
+            Review saved = reviewRepository.save(review);
+
+            // Mark that review was submitted
+            order.setReviewSubmitted(true);
+            itemRequestRepository.save(order);
+
+            // Send thank you email
+            emailService.sendReviewThankYouEmail(order, rating);
+
+            log.info("Review submitted successfully for COMMERCIAL order: {}", order.getRequestId());
+            return saved;
+        }
+
+        // 4. NOT FOUND ANYWHERE
+        log.warn("No entity found for token: {}", token);
+        throw new RuntimeException("Invalid or expired review token. Please request a new review link.");
     }
-
     // Validate review token with orderId (legacy)
     public boolean validateReviewToken(Long orderId, String token) {
         ItemRequest order = itemRequestRepository.findById(orderId)

@@ -575,7 +575,7 @@ public class EmailService {
     }
     public void sendReviewEmail(String to, String reviewToken, String itemName, String sourceType) {
         try {
-            String reviewUrl = String.format("%s/Reviews/%s?type=%s", appDomain, reviewToken);
+            String reviewUrl = String.format("%s/Reviews/%s?type=%s", appDomain, reviewToken,sourceType);
 
             String title = switch (sourceType) {
                 case "CAR" -> "🚗 We value your car purchase experience!";

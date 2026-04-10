@@ -3,6 +3,7 @@ package io.reflectoring.carshippingbackend.controllers;
 import io.reflectoring.carshippingbackend.DTO.MotorcycleRequestDTO;
 import io.reflectoring.carshippingbackend.DTO.MotorcycleResponseDTO;
 import io.reflectoring.carshippingbackend.DTO.SellerStatsDTO;
+import io.reflectoring.carshippingbackend.DTO.SoldRequest;
 import io.reflectoring.carshippingbackend.services.MotorcycleService;
 import io.reflectoring.carshippingbackend.services.SellerStatsService;
 import lombok.RequiredArgsConstructor;
@@ -62,6 +63,15 @@ public class MotorcycleController {
                     "message", e.getMessage()
             ));
         }
+    }
+    @PutMapping("/{id}/sold")
+    @PreAuthorize("hasAnyRole('ADMIN','SELLER')")
+    public ResponseEntity<?> markAsSold(
+            @PathVariable Long id,
+            @RequestBody SoldRequest request
+    ) {
+        MotorcycleResponseDTO response = service.markAsSold(id, request);
+        return ResponseEntity.ok(response);
     }
     @GetMapping("/stats/{email}")
     public ResponseEntity<?> getSellerStats(@PathVariable String email) {

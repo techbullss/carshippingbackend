@@ -87,4 +87,12 @@ public class Car {
     )
     @Column(name = "url", nullable = false)
     private List<String> imageUrls = new ArrayList<>();
+    @Column(name = "review_token", unique = true)
+    private String reviewToken;
+
+    @Column(name = "review_submitted")
+    private boolean reviewSubmitted = false;
+
+    @Column(name = "source_type")
+    private String sourceType = "CAR";
 }

@@ -4,8 +4,10 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import io.reflectoring.carshippingbackend.DTO.MotorcycleRequestDTO;
 import io.reflectoring.carshippingbackend.DTO.MotorcycleResponseDTO;
+import io.reflectoring.carshippingbackend.DTO.SoldRequest;
 import io.reflectoring.carshippingbackend.repository.MotorcycleRepository;
 import io.reflectoring.carshippingbackend.tables.Motorcycle;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -22,6 +25,7 @@ public class MotorcycleService {
 
     private final MotorcycleRepository repo;
     private final Cloudinary cloudinary;
+    private final EmailService emailService;
 
     // ==================== HELPER METHODS ====================
 
@@ -447,4 +451,53 @@ public class MotorcycleService {
 
         return options;
     }
+    @Transactional
+    public MotorcycleResponseDTO markAsSold(Long id, SoldRequest request) {
+
+        Motorcycle m = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Motorcycle not found"));
+
+        m.setStatus("SOLD");
+
+        //  BUYER DETAILS
+        m.setBuyerName(request.getBuyerName());
+        m.setBuyerEmail(request.getBuyerEmail());
+        m.setBuyerPhoneNumber(request.getBuyerPhoneNumber());
+        m.setSoldAt(LocalDateTime.now());
+
+        // review token
+        String token = UUID.randomUUID().toString();
+        m.setReviewToken(token);
+        m.setReviewSubmitted(false);
+
+        repo.save(m);
+
+        emailService.sendReviewEmail(
+                m.getBuyerEmail(),
+                token,
+                m.getBrand() + " " + m.getModel(),
+                "MOTORCYCLE"
+        );
+
+         return MotorcycleResponseDTO.builder()
+                .id(m.getId())
+                .brand(m.getBrand())
+                .model(m.getModel())
+                .type(m.getType())
+                .engineCapacity(m.getEngineCapacity())
+                .status(m.getStatus())
+                .price(m.getPrice())
+                .location(m.getLocation())
+                .owner(m.getOwner())
+                .description(m.getDescription())
+                .seller(m.getSeller())
+                .imageUrls(m.getImageUrls())
+                .createdAt(m.getCreatedAt())
+                .updatedAt(m.getUpdatedAt())
+                .features(m.getFeatures())
+                .year(m.getYear())
+                .mileageKm(m.getMileageKm())
+                .build();
+    }
+
 }

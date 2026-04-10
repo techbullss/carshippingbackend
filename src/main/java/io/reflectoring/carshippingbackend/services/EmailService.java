@@ -573,4 +573,71 @@ public class EmailService {
     private String formatDate(LocalDateTime dateTime) {
         return dateTime != null ? dateTime.format(DateTimeFormatter.ofPattern("MMMM d, yyyy")) : "N/A";
     }
+    public void sendReviewEmail(String to, String reviewToken, String itemName, String sourceType) {
+        try {
+            String reviewUrl = String.format("%s/Reviews/%s?type=%s", appDomain, reviewToken, sourceType);
+
+            String title = switch (sourceType) {
+                case "CAR" -> "🚗 We value your car purchase experience!";
+                case "MOTORCYCLE" -> "🏍️ How was your motorcycle purchase?";
+                case "COMMERCIAL" -> "🚛 Share your commercial vehicle experience!";
+                default -> "⭐ Share your experience!";
+            };
+
+            String htmlContent = """
+            <!DOCTYPE html>
+            <html>
+            <body style="margin:0;padding:0;font-family:Arial,sans-serif;">
+            <div style="max-width:600px;margin:0 auto;padding:20px;">
+                
+                <div style="background-color:#059669;padding:30px;text-align:center;">
+                    <h1 style="margin:0;color:white;">%s</h1>
+                </div>
+
+                <div style="padding:30px;border:1px solid #e5e7eb;border-top:none;">
+                    
+                    <p>We hope you enjoyed your <strong>%s</strong>.</p>
+
+                    <div style="background-color:#f9fafb;padding:20px;margin:20px 0;">
+                        <p><strong>Item:</strong> %s</p>
+                        <p><strong>Category:</strong> %s</p>
+                    </div>
+
+                    <p>We’d love your feedback 🙌</p>
+
+                    <div style="text-align:center;margin:30px 0;">
+                        <a href="%s"
+                           style="display:inline-block;background-color:#059669;color:white;
+                           padding:15px 40px;text-decoration:none;border-radius:8px;">
+                           Leave a Review →
+                        </a>
+                    </div>
+
+                    <div style="margin-top:30px;padding-top:20px;border-top:1px solid #e5e7eb;
+                         text-align:center;font-size:12px;color:#6b7280;">
+                        <p>Questions? Contact us at <a href="mailto:%s">%s</a></p>
+                        <p><a href="%s">%s</a></p>
+                    </div>
+
+                </div>
+            </div>
+            </body>
+            </html>
+            """.formatted(
+                    title,
+                    itemName,
+                    itemName,
+                    sourceType,
+                    reviewUrl,
+                    FROM_EMAIL, FROM_EMAIL,
+                    appDomain, appDomain
+            );
+
+            sendHtmlEmail(to, "Share Your Experience - " + itemName, htmlContent);
+
+        } catch (Exception e) {
+            log.error("Failed to send review email: {}", e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
 }

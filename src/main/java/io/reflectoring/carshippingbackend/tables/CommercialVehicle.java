@@ -89,4 +89,12 @@ public class CommercialVehicle {
     )
     @Column(name = "image_url")
     private List<String> imageUrls;
+    @Column(name = "review_token", unique = true)
+    private String reviewToken;
+
+    @Column(name = "review_submitted")
+    private boolean reviewSubmitted = false;
+
+    @Column(name = "source_type")
+    private String sourceType = "COMMERCIALVEHICLE";
 }

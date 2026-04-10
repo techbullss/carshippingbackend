@@ -58,6 +58,25 @@ public class Motorcycle {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    @Column(name = "review_token", unique = true)
+    private String reviewToken;
+    @Column(name = "buyer_name")
+    private String buyerName;
+
+    @Column(name = "buyer_email")
+    private String buyerEmail;
+
+    @Column(name = "buyer_phone")
+    private String buyerPhoneNumber;
+
+    @Column(name = "sold_at")
+    private LocalDateTime soldAt;
+
+    @Column(name = "review_submitted")
+    private boolean reviewSubmitted = false;
+
+    @Column(name = "source_type")
+    private String sourceType = "MOTORCYCLE";
 
     @PrePersist
     protected void prePersist() {
@@ -69,4 +88,5 @@ public class Motorcycle {
     protected void preUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
 }

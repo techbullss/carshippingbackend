@@ -61,6 +61,8 @@ public class ItemRequest {
     // New field for review token (optional - can be generated on demand)
     @Column(length = 100)
     private String reviewToken;
+    @Column(name = "source_type")
+    private String sourceType = "AUXILIARY";
 
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt = LocalDateTime.now();

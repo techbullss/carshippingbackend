@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public interface CommercialVehicleRepository extends
         JpaRepository<CommercialVehicle, Long>,
@@ -92,5 +93,5 @@ public interface CommercialVehicleRepository extends
             String brand, String model, Long excludeId
     );
     long countBySeller(String email);
-
+Optional<CommercialVehicle> findByReviewToken(String token);
 }

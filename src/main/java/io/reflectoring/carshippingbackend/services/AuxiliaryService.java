@@ -2,14 +2,8 @@ package io.reflectoring.carshippingbackend.services;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import io.reflectoring.carshippingbackend.repository.CarRepository;
-import io.reflectoring.carshippingbackend.repository.ItemRequestRepository;
-import io.reflectoring.carshippingbackend.repository.MotorcycleRepository;
-import io.reflectoring.carshippingbackend.repository.ReviewRepository;
-import io.reflectoring.carshippingbackend.tables.Car;
-import io.reflectoring.carshippingbackend.tables.ItemRequest;
-import io.reflectoring.carshippingbackend.tables.Motorcycle;
-import io.reflectoring.carshippingbackend.tables.Review;
+import io.reflectoring.carshippingbackend.repository.*;
+import io.reflectoring.carshippingbackend.tables.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,6 +31,7 @@ public class AuxiliaryService {
     private final EmailService emailService;
     private final CarRepository carRepository;
     private final MotorcycleRepository motorcycleRepository;
+    private final CommercialVehicleRepository commercialVehicleRepository;
 
     @Value("${app.admin.email:admin@f-carshipping.com}")
     private String adminEmail;
@@ -192,7 +187,7 @@ public class AuxiliaryService {
             log.info("Found CAR for token: {}", car.getId());
 
             // Check if review already submitted
-            if (car.getReviewSubmitted()=="SENT") {
+            if ("SENT".equals(car.getReviewSubmitted())) {
                 throw new RuntimeException("Review already submitted for this purchase");
             }
 
@@ -203,7 +198,7 @@ public class AuxiliaryService {
             review.setItemName(itemName);
             review.setRating(rating);
             review.setComment(comment);
-            review.setOrderId(car.getId()); // Store car ID
+            review.setOrderId(car.getId());
             review.setApproved(true);
             review.setCreatedAt(LocalDateTime.now());
             review.setHelpfulCount(0);
@@ -214,7 +209,7 @@ public class AuxiliaryService {
             car.setReviewSubmitted("SENT");
             carRepository.save(car);
 
-            // Send thank you email (you may need to create a version for car)
+            // Send thank you email
             emailService.sendVehicleReviewThankYouEmail(car.getBuyerName(), car.getBuyerEmail(), itemName, rating);
 
             log.info("Review submitted successfully for CAR: {}", car.getId());
@@ -228,7 +223,7 @@ public class AuxiliaryService {
             log.info("Found MOTORCYCLE for token: {}", motorcycle.getId());
 
             // Check if review already submitted
-            if (motorcycle.getReviewSubmitted()=="SENT") {
+            if ("SENT".equals(motorcycle.getReviewSubmitted())) {
                 throw new RuntimeException("Review already submitted for this purchase");
             }
 
@@ -239,7 +234,7 @@ public class AuxiliaryService {
             review.setItemName(itemName);
             review.setRating(rating);
             review.setComment(comment);
-            review.setOrderId(motorcycle.getId()); // Store motorcycle ID
+            review.setOrderId(motorcycle.getId());
             review.setApproved(true);
             review.setCreatedAt(LocalDateTime.now());
             review.setHelpfulCount(0);
@@ -257,14 +252,57 @@ public class AuxiliaryService {
             return saved;
         }
 
-        // 3. CHECK COMMERCIAL (ItemRequest)
+        // 3. CHECK COMMERCIAL VEHICLE
+        Optional<CommercialVehicle> commercialOpt = commercialVehicleRepository.findByReviewToken(token);
+        if (commercialOpt.isPresent()) {
+            CommercialVehicle commercial = commercialOpt.get();
+            log.info("Found COMMERCIAL VEHICLE for token: {}", commercial.getId());
+
+            // Check if review already submitted
+            if ("SENT".equals(commercial.getReviewSubmitted())) {
+                throw new RuntimeException("Review already submitted for this purchase");
+            }
+
+            // Create review
+            Review review = new Review();
+            review.setClientName(clientName);
+            review.setClientEmail(commercial.getBuyerEmail());
+            review.setItemName(itemName);
+            review.setRating(rating);
+            review.setComment(comment);
+            review.setOrderId(commercial.getId());
+            review.setApproved(true);
+            review.setCreatedAt(LocalDateTime.now());
+            review.setHelpfulCount(0);
+
+            Review saved = reviewRepository.save(review);
+
+            // Mark that review was submitted
+            commercial.setReviewSubmitted("SENT");
+            commercialVehicleRepository.save(commercial);
+
+            // Send thank you email for commercial vehicle
+            emailService.sendVehicleReviewThankYouEmail(
+                    commercial.getBuyerName(),
+                    commercial.getBuyerEmail(),
+                    itemName,
+                    rating
+            );
+
+            log.info("Review submitted successfully for COMMERCIAL VEHICLE: {}", commercial.getId());
+            return saved;
+        }
+
+        // 4. CHECK ITEM REQUEST (Original requests - not commercial vehicles)
         Optional<ItemRequest> orderOpt = itemRequestRepository.findByReviewToken(token);
         if (orderOpt.isPresent()) {
             ItemRequest order = orderOpt.get();
-            log.info("Found COMMERCIAL order for token: {}", order.getRequestId());
+            log.info("Found ITEM REQUEST for token: {}", order.getRequestId());
 
             // Check if review already submitted
-
+            if (order.getReviewSubmitted() == true) {
+                throw new RuntimeException("Review already submitted for this request");
+            }
 
             // Create review
             Review review = new Review();
@@ -287,15 +325,14 @@ public class AuxiliaryService {
             // Send thank you email
             emailService.sendReviewThankYouEmail(order, rating);
 
-            log.info("Review submitted successfully for COMMERCIAL order: {}", order.getRequestId());
+            log.info("Review submitted successfully for ITEM REQUEST: {}", order.getRequestId());
             return saved;
         }
 
-        // 4. NOT FOUND ANYWHERE
+        // 5. NOT FOUND ANYWHERE
         log.warn("No entity found for token: {}", token);
         throw new RuntimeException("Invalid or expired review token. Please request a new review link.");
-    }
-    // Validate review token with orderId (legacy)
+    }    // Validate review token with orderId (legacy)
     public boolean validateReviewToken(Long orderId, String token) {
         ItemRequest order = itemRequestRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
@@ -311,8 +348,11 @@ public class AuxiliaryService {
         Optional<Car> carOpt = carRepository.findByReviewToken(token);
         if (carOpt.isPresent()) {
             Car car = carOpt.get();
-
             log.info("Token matched CAR id: {}", car.getId());
+
+            if ("SENT".equals(car.getReviewSubmitted())) {
+                return Map.of("valid", false, "message", "Review already submitted for this purchase");
+            }
 
             return Map.of(
                     "valid", true,
@@ -328,8 +368,11 @@ public class AuxiliaryService {
         Optional<Motorcycle> motoOpt = motorcycleRepository.findByReviewToken(token);
         if (motoOpt.isPresent()) {
             Motorcycle m = motoOpt.get();
-
             log.info("Token matched MOTORCYCLE id: {}", m.getId());
+
+            if ("SENT".equals(m.getReviewSubmitted())) {
+                return Map.of("valid", false, "message", "Review already submitted for this purchase");
+            }
 
             return Map.of(
                     "valid", true,
@@ -341,16 +384,40 @@ public class AuxiliaryService {
             );
         }
 
-        // 3. CHECK COMMERCIAL (ItemRequest)
-        Optional<ItemRequest> orderOpt = itemRequestRepository.findByReviewToken(token);
-        if (orderOpt.isPresent()) {
-            ItemRequest order = orderOpt.get();
+        // 3. CHECK COMMERCIAL VEHICLE
+        Optional<CommercialVehicle> commercialOpt = commercialVehicleRepository.findByReviewToken(token);
+        if (commercialOpt.isPresent()) {
+            CommercialVehicle cv = commercialOpt.get();
+            log.info("Token matched COMMERCIAL VEHICLE id: {}", cv.getId());
 
-            log.info("Token matched COMMERCIAL order: {}", order.getRequestId());
+            if ("SENT".equals(cv.getReviewSubmitted())) {
+                return Map.of("valid", false, "message", "Review already submitted for this purchase");
+            }
 
             return Map.of(
                     "valid", true,
-                    "entityType", "AUXIARY",
+                    "entityType", "COMMERCIAL",
+                    "entityId", cv.getId(),
+                    "clientName", cv.getBuyerName(),
+                    "itemName", cv.getBrand() + " " + cv.getModel(),
+                    "clientEmail", cv.getBuyerEmail(),
+                    "vehicleType", cv.getType()
+            );
+        }
+
+        // 4. CHECK ITEM REQUEST (Original requests)
+        Optional<ItemRequest> orderOpt = itemRequestRepository.findByReviewToken(token);
+        if (orderOpt.isPresent()) {
+            ItemRequest order = orderOpt.get();
+            log.info("Token matched ITEM REQUEST: {}", order.getRequestId());
+
+            if (order.getReviewSubmitted()==true) {
+                return Map.of("valid", false, "message", "Review already submitted for this request");
+            }
+
+            return Map.of(
+                    "valid", true,
+                    "entityType", "ITEM_REQUEST",
                     "entityId", order.getId(),
                     "clientName", order.getClientName(),
                     "itemName", order.getItemName(),
@@ -358,15 +425,13 @@ public class AuxiliaryService {
             );
         }
 
-        // 4. NOT FOUND ANYWHERE
+        // 5. NOT FOUND ANYWHERE
         log.warn("Invalid token, not found in any repository: {}", token);
-
         return Map.of(
                 "valid", false,
                 "message", "Invalid or expired review link. Please request a new review link."
         );
-    }
-    // Get all reviews
+    }    // Get all reviews
     public Page<Review> getAllReviews(Pageable pageable) {
         return reviewRepository.findAllByOrderByCreatedAtDesc(pageable);
     }

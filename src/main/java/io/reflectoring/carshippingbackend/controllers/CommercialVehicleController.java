@@ -1,6 +1,6 @@
 package io.reflectoring.carshippingbackend.controllers;
 
-import io.reflectoring.carshippingbackend.DTO.SellerStatsDTO;
+import io.reflectoring.carshippingbackend.DTO.*;
 import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.configaration.CustomUserDetails;
 import io.reflectoring.carshippingbackend.repository.CommercialVehicleRepository;
@@ -9,8 +9,6 @@ import io.reflectoring.carshippingbackend.services.CommercialVehicleSpecificatio
 import io.reflectoring.carshippingbackend.services.SellerStatsService;
 import io.reflectoring.carshippingbackend.tables.Car;
 import io.reflectoring.carshippingbackend.tables.CommercialVehicle;
-import io.reflectoring.carshippingbackend.DTO.CommercialVehicleDTO;
-import io.reflectoring.carshippingbackend.DTO.CommercialVehicleResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -203,5 +201,14 @@ public class CommercialVehicleController {
             @RequestParam(required = false) Long exclude
     ) {
         return ResponseEntity.ok(service.getSimilarVehicles(brand, model, exclude));
+    }
+    @PutMapping("/{id}/sold")
+    @PreAuthorize("hasAnyRole('ADMIN','SELLER')")
+    public ResponseEntity<?> markAsSold(
+            @PathVariable Long id,
+            @RequestBody SoldRequest request
+    ) {
+        CommercialVehicleResponseDTO response = service.markAsSold(id, request);
+        return ResponseEntity.ok(response);
     }
 }

@@ -1,11 +1,17 @@
 package io.reflectoring.carshippingbackend.DTO;
 
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CommercialVehicleResponseDTO {
     private Long id;
     private String brand;
@@ -33,6 +39,8 @@ public class CommercialVehicleResponseDTO {
     private String features;
     private String customSpecs;
     private String seller;
+    private String status;
+    private String ownerEmail;
 
     private List<String> imageUrls;
 }

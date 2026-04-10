@@ -1,8 +1,12 @@
 package io.reflectoring.carshippingbackend.services;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import io.reflectoring.carshippingbackend.DTO.MotorcycleResponseDTO;
+import io.reflectoring.carshippingbackend.DTO.SoldRequest;
 import io.reflectoring.carshippingbackend.repository.CarRepository;
 import io.reflectoring.carshippingbackend.tables.Car;
+import io.reflectoring.carshippingbackend.tables.Motorcycle;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
@@ -10,6 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -233,6 +238,35 @@ public class CarService {
                 throw new RuntimeException("Unauthorized access");
         }
     }
+    @Transactional
+    public Car markAsSold(Long id, SoldRequest request) {
 
+        Car m = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Motorcycle not found"));
+
+        m.setStatus("SOLD");
+
+        //  BUYER DETAILS
+        m.setBuyerName(request.getBuyerName());
+        m.setBuyerEmail(request.getBuyerEmail());
+        m.setBuyerPhoneNumber(request.getBuyerPhoneNumber());
+        m.setSoldAt(LocalDateTime.now());
+
+        // review token
+        String token = UUID.randomUUID().toString();
+        m.setReviewToken(token);
+        m.setReviewSubmitted("NOTSENT");
+
+        repo.save(m);
+
+        emailService.sendReviewEmail(
+                m.getBuyerEmail(),
+                token,
+                m.getBrand() + " " + m.getModel(),
+                "CAR"
+        );
+
+        return m;
+    }
 }
 

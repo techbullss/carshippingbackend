@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -94,6 +95,11 @@ public class Car {
     private String reviewSubmitted = "SENT";
     @Column(name = "buyer_name")
     private String buyerName;
+    @Column(name = "buyer_phone")
+    private String buyerPhoneNumber;
+
+    @Column(name = "sold_at")
+    private LocalDateTime soldAt;
 
     @Column(name = "buyer_email")
     private String buyerEmail;

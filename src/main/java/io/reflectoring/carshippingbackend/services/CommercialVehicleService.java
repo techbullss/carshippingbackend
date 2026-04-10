@@ -4,8 +4,12 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleDTO;
 import io.reflectoring.carshippingbackend.DTO.CommercialVehicleResponseDTO;
+import io.reflectoring.carshippingbackend.DTO.MotorcycleResponseDTO;
+import io.reflectoring.carshippingbackend.DTO.SoldRequest;
 import io.reflectoring.carshippingbackend.repository.CommercialVehicleRepository;
 import io.reflectoring.carshippingbackend.tables.CommercialVehicle;
+import io.reflectoring.carshippingbackend.tables.Motorcycle;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
@@ -13,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -21,6 +26,7 @@ public class CommercialVehicleService {
 
     private final CommercialVehicleRepository repo;
     private final Cloudinary cloudinary;
+    private final EmailService emailService;
 
     // ------------------- Upload Images -------------------
     private List<String> uploadImages(List<MultipartFile> images) throws IOException {
@@ -69,6 +75,8 @@ public class CommercialVehicleService {
         dto.setCustomSpecs(vehicle.getCustomSpecs());
         dto.setImageUrls(vehicle.getImageUrls());
         dto.setSeller(vehicle.getSeller());
+        dto.setOwnerEmail(vehicle.getOwnerEmail());
+        dto.setStatus(vehicle.getStatus());
 
         return dto;
     }
@@ -296,5 +304,46 @@ public class CommercialVehicleService {
 
         Page<CommercialVehicle> vehicles = searchWithSpecifications(filters, pageable);
         return vehicles.map(this::toDto);
+    }
+    @Transactional
+    public CommercialVehicleResponseDTO markAsSold(Long id, SoldRequest request) {
+
+        CommercialVehicle m = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Motorcycle not found"));
+
+        m.setStatus("SOLD");
+
+        //  BUYER DETAILS
+        m.setBuyerName(request.getBuyerName());
+        m.setBuyerEmail(request.getBuyerEmail());
+        m.setBuyerPhoneNumber(request.getBuyerPhoneNumber());
+        m.setSoldAt(LocalDateTime.now());
+
+        // review token
+        String token = UUID.randomUUID().toString();
+        m.setReviewToken(token);
+        m.setReviewSubmitted("NOTSENT");
+
+        repo.save(m);
+
+        emailService.sendReviewEmail(
+                m.getBuyerEmail(),
+                token,
+                m.getBrand() + " " + m.getModel(),
+                "COMMERCIALVEHICLE"
+        );
+
+        return CommercialVehicleResponseDTO.builder()
+                .id(m.getId())
+                .brand(m.getBrand())
+                .model(m.getModel())
+                .type(m.getType())
+                .status(m.getStatus())
+                .location(m.getLocation())
+                .ownerEmail(m.getOwnerEmail())
+                .description(m.getDescription())
+                .seller(m.getSeller())
+                .imageUrls(m.getImageUrls())
+                .build();
     }
 }

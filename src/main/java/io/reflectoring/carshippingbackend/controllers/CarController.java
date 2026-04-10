@@ -1,6 +1,8 @@
 package io.reflectoring.carshippingbackend.controllers;
 
+import io.reflectoring.carshippingbackend.DTO.MotorcycleResponseDTO;
 import io.reflectoring.carshippingbackend.DTO.SellerStatsDTO;
+import io.reflectoring.carshippingbackend.DTO.SoldRequest;
 import io.reflectoring.carshippingbackend.Enum.Role;
 import io.reflectoring.carshippingbackend.configaration.CustomUserDetails;
 import io.reflectoring.carshippingbackend.repository.CarRepository;
@@ -255,5 +257,13 @@ public class CarController {
             return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
     }
-
+    @PutMapping("/{id}/sold")
+    @PreAuthorize("hasAnyRole('ADMIN','SELLER')")
+    public ResponseEntity<?> markAsSold(
+            @PathVariable Long id,
+            @RequestBody SoldRequest request
+    ) {
+        Car response = service.markAsSold(id, request);
+        return ResponseEntity.ok(response);
+    }
 }

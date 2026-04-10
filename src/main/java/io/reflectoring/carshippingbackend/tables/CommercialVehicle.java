@@ -3,6 +3,7 @@ package io.reflectoring.carshippingbackend.tables;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -94,6 +95,16 @@ public class CommercialVehicle {
 
     @Column(name = "review_submitted")
     private String reviewSubmitted = "SENT";
+    @Column(name = "buyer_name")
+    private String buyerName;
+    @Column(name = "buyer_phone")
+    private String buyerPhoneNumber;
+
+    @Column(name = "sold_at")
+    private LocalDateTime soldAt;
+
+    @Column(name = "buyer_email")
+    private String buyerEmail;
 
     @Column(name = "source_type")
     private String sourceType = "COMMERCIALVEHICLE";
